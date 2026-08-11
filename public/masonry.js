@@ -79,12 +79,12 @@ export function createMasonry(container, { gap = 16, minColumn = 230 } = {}) {
   return {
     /**
      * @param {object[]} pins
-     * @param {(pin: object) => HTMLElement} render
+     * @param {(pin: object, indexInBatch: number) => HTMLElement} render
      */
     append(pins, render) {
-      for (const pin of pins) {
+      for (const [offset, pin] of pins.entries()) {
         const item = {
-          el: render(pin),
+          el: render(pin, offset),
           width: pin.width,
           height: pin.height,
           hasCaption: Boolean(pin.title),

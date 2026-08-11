@@ -32,8 +32,13 @@ export const chain = () => stack.map((layer) => layer.pin.id);
 /** The only interactive layer — where arrow-key selection should apply. */
 export const topElement = () => stack.at(-1)?.el || null;
 
-/** Open a pin as a new layer on top of whatever is already there. */
-export async function open(pinOrId) {
+/**
+ * Open a pin as a new layer on top of whatever is already there.
+ * @param {object|string} pinOrId
+ * @param {{siblings: object[], index: number}} [context] the feed it came from,
+ *   so the arrow keys can walk the hero along to its neighbours.
+ */
+export async function open(pinOrId, context) {
   const summary = typeof pinOrId === 'string' ? null : pinOrId;
   const id = summary ? summary.id : String(pinOrId);
   if (stack.at(-1)?.pin.id === id) return;
@@ -42,18 +47,54 @@ export async function open(pinOrId) {
   // detail and related pins fill in when they land.
   const layer = {
     pin: summary || { id, title: '', color: '#2a2a2e' },
+    siblings: context?.siblings || [],
+    index: context?.index ?? -1,
     bookmark: null,
     loading: false,
     done: false,
+    relatedPins: [],
   };
   build(layer);
   stack.push(layer);
   restyle();
   onChange();
+  await fill(layer);
+}
+
+/** Swap the hero for its neighbour in the feed this layer came from. */
+export async function step(delta) {
+  const layer = stack.at(-1);
+  if (!layer || layer.index < 0) return;
+
+  const next = layer.index + delta;
+  const pin = layer.siblings[next];
+  if (!pin) return;
+
+  layer.index = next;
+  layer.pin = pin;
+  layer.bookmark = null;
+  layer.done = false;
+  layer.loading = false;
+  layer.relatedPins = [];
+  layer.masonry.clear();
+  layer.related.scrollTop = 0;
+  layer.body.scrollTop = 0;
+  hydrate(layer);
+  restyle();
+  // Stepping is browsing, not a new destination, so don't stack history entries.
+  onChange({ replace: true });
+  await fill(layer);
+}
+
+/** Load detail and the first page of related pins into an existing layer. */
+async function fill(layer) {
+  layer.spinner.hidden = false;
+  layer.status.hidden = true;
 
   try {
-    const data = await getPin(id);
-    if (!stack.includes(layer)) return; // popped while loading
+    const data = await getPin(layer.pin.id);
+    if (!stack.includes(layer) || layer.pin.id !== data.pin.id) return;
+    // Keep the position we already know; detail has no sibling context.
     layer.pin = data.pin;
     layer.bookmark = data.bookmark;
     layer.done = !data.bookmark;
@@ -79,7 +120,6 @@ export function popTo(target) {
   const keep = Math.max(0, target);
   while (stack.length > keep) {
     const layer = stack.pop();
-    layer.observer?.disconnect();
     layer.el.classList.add('leaving');
     layer.el.addEventListener('transitionend', () => layer.el.remove(), { once: true });
     setTimeout(() => layer.el.remove(), 400);
@@ -174,7 +214,6 @@ function build(layer) {
       <div class="layer-related">
         <h3>More like this</h3>
         <div class="sub-grid"></div>
-        <div class="layer-sentinel"></div>
         <div class="spinner" hidden></div>
         <p class="status" hidden>Loading…</p>
         <button type="button" class="more" hidden>Load more</button>
@@ -186,7 +225,8 @@ function build(layer) {
   layer.more = el.querySelector('.more');
   layer.status = el.querySelector('.status');
   layer.hero = el.querySelector('.layer-hero img');
-  layer.sentinel = el.querySelector('.layer-sentinel');
+  layer.body = el.querySelector('.layer-body');
+  layer.related = el.querySelector('.layer-related');
   layer.spinner = el.querySelector('.spinner');
   layer.spinner.hidden = false;
   layer.status.hidden = true;
@@ -207,22 +247,45 @@ function build(layer) {
 }
 
 function addRelated(layer, pins) {
-  layer.masonry.append(pins, (pin) => createCard(pin, { onOpen: open, size: 'sub' }));
+  const start = layer.relatedPins.length;
+  layer.relatedPins.push(...pins);
+  layer.masonry.append(pins, (pin, offset) =>
+    createCard(pin, {
+      // Digging from here carries this feed along as the new layer's siblings.
+      onOpen: (target) =>
+        open(target, { siblings: layer.relatedPins, index: start + offset }),
+      size: 'sub',
+    }),
+  );
 }
 
 /**
- * Keep the related feed loading itself. Using the layer as the observer root
- * works whichever descendant actually scrolls (it changes with the breakpoint).
+ * Keep the related feed loading itself.
+ *
+ * Which element actually scrolls changes with the breakpoint (the feed pane on
+ * desktop, the whole body on narrow screens), so listen to both and measure the
+ * distance to the bottom directly. That sidesteps the clipping rules an
+ * IntersectionObserver would be subject to inside a nested scroller.
  */
 function watchScroll(layer) {
-  if (layer.observer) return;
-  layer.observer = new IntersectionObserver(
-    (entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) loadMore(layer);
-    },
-    { root: layer.el, rootMargin: '900px' },
-  );
-  layer.observer.observe(layer.sentinel);
+  if (layer.watching) return;
+  layer.watching = true;
+
+  layer.checkScroll = () => {
+    if (layer.loading || layer.done) return;
+    for (const el of [layer.related, layer.body]) {
+      const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (el.scrollHeight > el.clientHeight && remaining < 900) {
+        loadMore(layer);
+        return;
+      }
+    }
+  };
+
+  layer.related.addEventListener('scroll', layer.checkScroll, { passive: true });
+  layer.body.addEventListener('scroll', layer.checkScroll, { passive: true });
+  // The first page may not even fill the pane.
+  layer.checkScroll();
 }
 
 function hydrate(layer) {
@@ -235,8 +298,6 @@ function hydrate(layer) {
   if (pin.large || pin.thumb) {
     layer.hero.src = pin.large || pin.thumb;
     layer.hero.alt = pin.alt || pin.title || 'Pin image';
-    layer.hero.style.backgroundColor = pin.color;
-    if (pin.width && pin.height) layer.hero.style.aspectRatio = `${pin.width} / ${pin.height}`;
   }
 
   const source = layer.el.querySelector('.layer-source');
@@ -271,7 +332,6 @@ async function loadMore(layer) {
     // Only a fallback now that the feed loads itself.
     layer.more.hidden = true;
     if (layer.done) {
-      layer.observer?.disconnect();
       layer.status.hidden = false;
       layer.status.textContent = 'End of related pins.';
     }
@@ -284,14 +344,8 @@ async function loadMore(layer) {
     layer.loading = false;
     if (stack.includes(layer)) {
       layer.spinner.hidden = true;
-      rearm(layer);
+      // If the new page still didn't reach past the fold, keep going.
+      requestAnimationFrame(() => layer.checkScroll?.());
     }
   }
-}
-
-/** Same re-arm trick as the main grid: force a fresh intersection report. */
-function rearm(layer) {
-  if (layer.done || !layer.observer) return;
-  layer.observer.unobserve(layer.sentinel);
-  requestAnimationFrame(() => layer.observer?.observe(layer.sentinel));
 }

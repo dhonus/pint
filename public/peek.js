@@ -9,7 +9,12 @@ let open = false;
 // Zoom (from the shelf) stays up until dismissed, unlike hold-to-peek.
 let sticky = false;
 
+let current = null;
+
 export const isPeeking = () => open;
+/** Only a click-zoom can be stepped through with the arrow keys. */
+export const isZooming = () => open && sticky;
+export const currentPin = () => current;
 
 // A keydown can target `document` or `window`, which have no `.matches`.
 const isTyping = (target) =>
@@ -44,6 +49,7 @@ export function initPeek() {
 }
 
 function show(pin) {
+  current = pin;
   img.src = pin.full || pin.large || pin.thumb;
   img.style.backgroundColor = pin.color;
   if (pin.width && pin.height) img.style.aspectRatio = `${pin.width} / ${pin.height}`;
@@ -67,4 +73,5 @@ export function hide() {
   img.removeAttribute('src');
   open = false;
   sticky = false;
+  current = null;
 }

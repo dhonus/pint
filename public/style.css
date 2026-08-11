@@ -149,6 +149,78 @@ main {
   color: var(--muted);
 }
 
+/* ---------- home ---------- */
+
+.home {
+  max-width: 780px;
+  margin: 8vh auto 40px;
+  padding: 0 4px;
+}
+
+.home h1 {
+  margin: 0 0 12px;
+  font-size: clamp(28px, 4.5vw, 42px);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.home-lead {
+  margin: 0 0 40px;
+  max-width: 60ch;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.home-block {
+  margin-bottom: 30px;
+}
+
+.home-block h2 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 8px 15px;
+  font-size: 14px;
+}
+
+.chip:hover {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.chip-subtle {
+  background: none;
+}
+
+.home-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 44px 0 0;
+  padding: 22px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.home-keys kbd + kbd {
+  margin-left: 2px;
+}
+
 /* ---------- masonry grid ---------- */
 
 /* Real columns, not `column-count`: appending must never move what's already
@@ -296,9 +368,10 @@ main {
   backdrop-filter: blur(3px);
 }
 
+/* Stop short of the shelf so the stack never sits underneath it. */
 .layers {
   position: fixed;
-  inset: 0;
+  inset: 0 0 var(--shelf-h) 0;
   z-index: 40;
   pointer-events: none;
 }
@@ -309,7 +382,8 @@ main {
   top: 50%;
   left: 50%;
   width: min(1500px, 96vw);
-  height: min(93vh, 1150px);
+  /* Percentages here are of `.layers`, which already excludes the shelf. */
+  height: min(97%, 1150px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -405,38 +479,38 @@ main {
 .layer-body {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-  /* Without an explicit bounded row the row sizes to the image and the hero
-     overflows the layer — `height: 100%` would resolve against content. */
-  grid-template-rows: minmax(0, 1fr);
+  display: flex;
   gap: 22px;
   padding: 18px;
   overflow: hidden;
 }
 
+/* Flex stretch gives both panes the body's height with no percentage to
+   resolve, so neither can be sized by its own content. */
 .layer-hero {
-  display: grid;
-  place-items: center;
+  position: relative;
+  flex: 1.3 1 0;
+  min-width: 0;
   min-height: 0;
-  height: 100%;
-  overflow: hidden;
 }
 
+/* Absolutely positioned, so the image contributes nothing to layout and can
+   never grow the box that is meant to be constraining it. It fills the pane
+   and letterboxes inside — always whole, always as large as fits. */
 .layer-hero img {
-  display: block;
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   border-radius: var(--radius);
-  background: var(--surface);
+  background: none;
 }
 
 .layer-related {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 0;
-  height: 100%;
   overflow-y: auto;
   padding-right: 4px;
   overscroll-behavior: contain;
@@ -460,18 +534,16 @@ main {
   }
   /* Narrow screens scroll the whole body instead, hero first. */
   .layer-body {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto;
+    flex-direction: column;
     overflow-y: auto;
   }
+  /* A definite height here, since the absolute image can't imply one. */
   .layer-hero {
-    height: auto;
-  }
-  .layer-hero img {
-    max-height: 62dvh;
+    flex: none;
+    height: 58dvh;
   }
   .layer-related {
-    height: auto;
+    flex: none;
     overflow: visible;
   }
 }
@@ -481,7 +553,7 @@ main {
 .rail {
   position: fixed;
   left: 14px;
-  top: 50%;
+  top: calc((100% - var(--shelf-h)) / 2);
   transform: translateY(-50%);
   z-index: 50;
   display: flex;

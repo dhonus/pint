@@ -4,7 +4,15 @@ import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
 import * as layers from './layers.js';
 import { initShelf, isComparing, closeCompare } from './shelf-ui.js';
-import { initPeek, isPeeking, hide as hidePeek } from './peek.js';
+import { initHome, showHome, remember } from './home.js';
+import {
+  initPeek,
+  isPeeking,
+  isZooming,
+  currentPin,
+  zoom,
+  hide as hidePeek,
+} from './peek.js';
 
 const form = document.getElementById('search-form');
 const input = document.getElementById('search-input');
@@ -14,7 +22,8 @@ const moreBtn = document.getElementById('more');
 const sentinel = document.getElementById('sentinel');
 const spinner = document.getElementById('loading');
 
-const state = { query: '', bookmark: null, loading: false, done: false };
+// `pins` is kept so a layer opened from the grid can walk left/right along it.
+const state = { query: '', bookmark: null, loading: false, done: false, pins: [] };
 const masonry = createMasonry(grid, { gap: 16, minColumn: 240 });
 // True while replaying a history entry, so we don't push new ones as we go.
 let restoring = false;
@@ -33,6 +42,7 @@ async function loadResults({ reset = false } = {}) {
 
   if (reset) {
     masonry.clear();
+    state.pins = [];
     state.bookmark = null;
     state.done = false;
   }
@@ -44,7 +54,14 @@ async function loadResults({ reset = false } = {}) {
     // A newer search may have started while this was in flight.
     if (data.query !== state.query) return;
 
-    masonry.append(data.pins, (pin) => createCard(pin, { onOpen: openLayer }));
+    const start = state.pins.length;
+    state.pins.push(...data.pins);
+    masonry.append(data.pins, (pin, offset) =>
+      createCard(pin, {
+        onOpen: (target) =>
+          layers.open(target, { siblings: state.pins, index: start + offset }),
+      }),
+    );
     state.bookmark = data.bookmark;
     state.done = !data.bookmark;
 
@@ -69,28 +86,38 @@ function runSearch(query) {
 
   if (!query) {
     masonry.clear();
+    state.pins = [];
     moreBtn.hidden = true;
     spinner.hidden = true;
     state.bookmark = null;
     state.done = false;
-    setStatus('Search for something to start. Hold Space to peek, S to shelf.');
+    setStatus('');
+    showHome(true);
     return Promise.resolve();
   }
+
+  showHome(false);
+  remember(query);
   return loadResults({ reset: true });
 }
 
 /* ---------- layers ---------- */
 
+/** Opening from the shelf walks the shelf; from anywhere else, just the pin. */
 function openLayer(pin) {
-  layers.open(pin);
+  const items = shelf.list();
+  const index = items.findIndex((item) => item.id === pin.id);
+  layers.open(pin, index >= 0 ? { siblings: items, index } : undefined);
 }
 
 layers.initLayers({
   root: document.getElementById('layers'),
   rail: document.getElementById('rail'),
   backdrop: document.getElementById('backdrop'),
-  onChange: () => {
-    if (!restoring) pushState();
+  onChange: (options) => {
+    if (restoring) return;
+    if (options?.replace) history.replaceState(snapshot(), '', currentUrl());
+    else pushState();
   },
 });
 
@@ -144,6 +171,13 @@ initShelf({
   onOpen: openLayer,
 });
 initPeek();
+initHome({
+  home: document.getElementById('home'),
+  onPick: (query) => {
+    input.value = query;
+    form.requestSubmit();
+  },
+});
 
 /* ---------- input wiring ---------- */
 
@@ -185,6 +219,14 @@ function rearmGrid() {
 // A keydown can target `document` or `window`, which have no `.matches`.
 const isTyping = (target) =>
   target instanceof Element && target.matches('input, textarea, [contenteditable]');
+
+/** Walk a zoomed shelf image along the shelf itself. */
+function stepZoom(delta) {
+  const items = shelf.list();
+  const index = items.findIndex((item) => item.id === currentPin()?.id);
+  const next = items[index + delta];
+  if (next) zoom(next);
+}
 
 /** Whichever surface is on top is the one the arrow keys should walk. */
 function selectable() {
@@ -257,10 +299,16 @@ addEventListener('keydown', (event) => {
       break;
     }
     case 'ArrowRight':
-    case 'ArrowLeft':
+    case 'ArrowLeft': {
       event.preventDefault();
-      moveSelection(event.key === 'ArrowRight' ? 'right' : 'left');
+      const delta = event.key === 'ArrowRight' ? 1 : -1;
+      // Arrows drive whatever big image is on screen; only fall back to moving
+      // the selection when there isn't one.
+      if (isZooming()) stepZoom(delta);
+      else if (layers.isOpen()) layers.step(delta);
+      else moveSelection(delta > 0 ? 'right' : 'left');
       break;
+    }
     case '/':
       event.preventDefault();
       input.focus();
@@ -274,5 +322,8 @@ addEventListener('keydown', (event) => {
 /* ---------- boot ---------- */
 
 const initial = readUrl();
+// `restore` skips runSearch when the query already matches, which on a cold
+// start with no query means nothing would ever show the empty state.
+showHome(!initial.q);
 history.replaceState({ q: initial.q, chain: initial.chain }, '', currentUrl());
 restore(initial).then(() => history.replaceState(snapshot(), '', currentUrl()));

@@ -31,6 +31,32 @@
     </header>
 
     <main>
+      <section id="home" class="home" hidden>
+        <h1>Dig without losing your place.</h1>
+        <p class="home-lead">
+          Open a pin and it stacks on top of your results instead of replacing
+          them. Go as deep as you like — the trail stays on the left, and
+          everything you shelve stays at the bottom.
+        </p>
+
+        <div class="home-block">
+          <h2>Start somewhere</h2>
+          <div id="suggestions" class="chips"></div>
+        </div>
+
+        <div id="recent-block" class="home-block" hidden>
+          <h2>Recent</h2>
+          <div id="recent" class="chips"></div>
+        </div>
+
+        <ul class="home-keys">
+          <li><kbd>←</kbd><kbd>→</kbd> move through images</li>
+          <li><kbd>Space</kbd> hold to peek</li>
+          <li><kbd>S</kbd> add to the shelf</li>
+          <li><kbd>Esc</kbd> step back a layer</li>
+        </ul>
+      </section>
+
       <p id="status" class="status" hidden></p>
       <div id="grid" class="grid"></div>
       <div id="sentinel"></div>

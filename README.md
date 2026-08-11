@@ -1,101 +1,103 @@
 # pint
 
-An alternative frontend for Pinterest. The backend fetches and parses Pinterest;
-the frontend is its own thing. No tracking, no login wall, no app nag.
+Pint is an alternative frontend for Pinterest. The backend fetches and parses the real site, the
+frontend is its own thing. No account, no login wall, no app nag, and your browser never talks to
+Pinterest directly.
 
-<img width="1656" height="1291" alt="Screenshot 2026-08-11 at 22 19 19" src="https://github.com/user-attachments/assets/e2382265-d89d-4d7e-80fe-52a5558ffc96" />
+The whole point is navigation. On Pinterest, opening a pin throws away the grid you were scanning and
+going back loses your place. Here nothing ever navigates — pins open as **layers** stacked on top of
+your results, and you can dig as deep as you like without losing the trail that got you there.
 
-<img width="1656" height="1291" alt="Screenshot 2026-08-11 at 22 20 01" src="https://github.com/user-attachments/assets/35c718ba-6184-4016-9dab-54b869f8b845" />
+![pint](https://github.com/user-attachments/assets/e2382265-d89d-4d7e-80fe-52a5558ffc96)
 
-<img width="1656" height="1291" alt="Screenshot 2026-08-11 at 22 20 16" src="https://github.com/user-attachments/assets/02fd6565-0e59-4607-9617-a6ee95032cab" />
+## Features
 
-## Run
+- search with a masonry grid that lazy loads and never reshuffles what's already on screen
+- **layers** — pins open on top of the frozen grid, and related pins stack another layer on top of that
+- the **rail** on the left is your trail, click any level to pop straight back to it
+- **shelf** — press `s` on any pin at any depth, it stays there across searches and reloads
+- **compare** blows the shelf up into a full grid, for seeing six jackets next to each other
+- hold `space` to peek at whatever you're pointing at, no click needed
+- arrow keys walk the big image sideways through the feed it came from
+- back/forward drive the layer stack instead of leaving the page
+- the whole dig lives in the URL (`/?q=coats&pin=123,456,789`), so it's shareable
+- all images proxied through the backend
+- no dependencies, no build step, no framework
 
-```sh
+![pint](https://github.com/user-attachments/assets/35c718ba-6184-4016-9dab-54b869f8b845)
+
+### Planned
+
+- boards and users as layer types, not just pins
+- multiple named shelves + export
+- response caching so repeat searches don't re-hit Pinterest
+
+## Running
+
+```bash
 npm start          # http://localhost:3000
 PORT=8080 npm start
 ```
 
-No dependencies — just Node 20+ (uses built-in `fetch`).
-
-## The idea: nothing ever navigates
-
-Pinterest's core annoyance is that opening a pin is *destructive*. It tears down
-the grid you were scanning, and coming back loses your place. Digging into an
-idea costs you the trail that led to it.
-
-Here, clicking a pin never routes anywhere. It opens a **layer** over the frozen
-results grid, and layers stack:
-
-- Click a pin → it opens as a layer. The grid underneath keeps its exact scroll
-  position, because it was never unmounted.
-- Every layer shows *more like this*. Click one of those → a new layer stacks on
-  top, and the previous one recedes behind it. Depth is something you can see.
-- The **rail** on the left is your trail — one chip per layer. Click any chip to
-  pop straight back to that level; the layer you return to kept its own scroll.
-- Back/forward drive the stack instead of leaving the page, and the whole trail
-  lives in the URL (`/?q=coats&pin=123,456,789`), so a dig is shareable.
-
-## The shelf
-
-The collecting workflow, which Pinterest makes you use boards for. Press `S` on
-any pin — in the grid, inside any layer, at any depth — and it lands on the shelf
-at the bottom. It persists across searches and reloads (`localStorage`).
-
-**Compare** expands the shelf into a full grid, so you can see six jackets next
-to each other. That's the thing plain Pinterest can't do.
+Needs Node 20+ for built-in `fetch`. That's it — there's nothing to install.
 
 ## Keys
 
-| Key | Does |
-| --- | --- |
-| `Space` (hold) | Peek: enlarge whatever you're pointing at. Release to dismiss. Most looks shouldn't cost a click. |
-| `S` | Shelf the pin under the cursor |
-| `Esc` | Step back one layer (closes compare/peek first) |
-| `Backspace` | Step back one layer |
-| `/` | Focus the search box |
+| Key           | Action                                                                     |
+|---------------|----------------------------------------------------------------------------|
+| `←` `→`       | move sideways. in a layer this swaps the big image itself, over a zoomed shelf image it walks the shelf, on the grid it moves the selection |
+| `space`       | hold to peek, release to dismiss                                           |
+| `s`           | add the pin under the cursor to the shelf                                  |
+| `esc`         | step back — zoom first, then compare, then one layer                       |
+| `backspace`   | step back one layer                                                        |
+| `/`           | focus the search box                                                       |
+
+![pint](https://github.com/user-attachments/assets/02fd6565-0e59-4607-9617-a6ee95032cab)
 
 ## Layout
 
-| File               | Role                                                   |
-| ------------------ | ------------------------------------------------------ |
-| `server.js`        | HTTP server: search, pin, related, image proxy, static  |
-| `pinterest.js`     | Talks to Pinterest's web API, normalizes pins           |
-| `public/app.js`    | Search grid, history, keyboard                          |
-| `public/layers.js` | The layer stack and the rail                            |
-| `public/shelf.js`  | Shelf store (persisted); `shelf-ui.js` is the bar       |
-| `public/cards.js`  | The pin card, shared by grid, layers, and shelf         |
-| `public/peek.js`   | Hold-Space preview                                      |
+| File                | Role                                                   |
+|---------------------|--------------------------------------------------------|
+| `server.js`         | http server — search, pin, related, image proxy, static |
+| `pinterest.js`      | talks to Pinterest, normalizes pins                     |
+| `public/app.js`     | search grid, history, keyboard                          |
+| `public/layers.js`  | the layer stack and the rail                            |
+| `public/masonry.js` | append-only column masonry                              |
+| `public/shelf.js`   | shelf store, `shelf-ui.js` is the bar and compare view  |
+| `public/cards.js`   | the pin card, shared everywhere                         |
+| `public/peek.js`    | hold-space peek and click-to-zoom                       |
+| `public/home.js`    | empty state — starters and recent searches              |
 
 ## API
 
-- `GET /api/search?q=<query>&bookmark=<cursor>` → `{ query, pins, bookmark }`
-- `GET /api/pin/<id>` → `{ pin, related, bookmark }` — detail plus the first page
-  of related pins, so opening a layer is one round trip
-- `GET /api/related?id=<id>&bookmark=<cursor>` → `{ pins, bookmark }`
-- `GET /api/image?url=<i.pinimg.com url>` → streams the image
+| Endpoint                                | Returns                                        |
+|-----------------------------------------|------------------------------------------------|
+| `/api/search?q=&bookmark=`              | `{ query, pins, bookmark }`                    |
+| `/api/pin/<id>`                         | `{ pin, related, bookmark }` — one round trip  |
+| `/api/related?id=&bookmark=`            | `{ pins, bookmark }`                           |
+| `/api/image?url=<i.pinimg.com url>`     | streams the image                              |
 
-Pass a returned `bookmark` back to get the next page; `null` means the end. Every
-image URL in a response already points at `/api/image`, so the browser never
-contacts Pinterest or `pinimg.com` directly.
+Pass a returned `bookmark` back for the next page, `null` means the end. Image URLs in responses
+already point at `/api/image`.
 
 ## How it talks to Pinterest
 
-It calls Pinterest's own web endpoints (`/resource/<Name>/get/`), the same ones
-pinterest.com uses. Two undocumented requirements, both handled in
-`pinterest.js`:
+It calls Pinterest's own internal `/resource/<Name>/get/` endpoints — the same ones pinterest.com
+uses. Two undocumented things are needed to not get a 403, both handled in `pinterest.js`:
 
-1. The `X-CSRFToken` header must match the `csrftoken` cookie. The value isn't
-   validated, so we mint a random one at startup and send it in both places.
-2. `X-Pinterest-PWS-Handler` must name the page the call would have come from
-   (`www/search/[scope].js`, `www/pin/[id].js`). Without the right one the
-   endpoint answers `403 Invalid Resource Request` even with a valid CSRF pair.
+- `X-CSRFToken` must match the `csrftoken` cookie. The value isn't validated, so we just mint a
+  random one at startup and send it in both places.
+- `X-Pinterest-PWS-Handler` must name the page the call would have come from (`www/search/[scope].js`,
+  `www/pin/[id].js`). Get it wrong and you get `403 Invalid Resource Request` even with a valid CSRF pair.
 
-These are unofficial endpoints: they can change without notice, and heavy
-traffic from one IP may get rate limited (surfaced as HTTP 429).
+These are unofficial and can change without notice. Hammering them from one IP will get you rate
+limited, which shows up as a 429.
 
-## Ideas next
+## Notes
 
-- Boards and users as layer types, not just pins
-- Multiple named shelves, and export (the data is already local)
-- Response caching so repeat searches don't re-hit Pinterest
+- the masonry is hand-rolled because CSS `column-count` redistributes every item when you append,
+  so lazy loading shuffles everything above you and you lose your place mid-scroll. each column is
+  its own element and new cards go to the shortest one, so nothing on screen ever moves
+- an `IntersectionObserver` only reports *changes*, so once a page lands the sentinel is usually
+  still in view and never fires again — the grid re-observes after each batch, the layer feed just
+  measures its scroller's distance to the bottom
