@@ -3,6 +3,12 @@
 An alternative frontend for Pinterest. The backend fetches and parses Pinterest;
 the frontend is its own thing. No tracking, no login wall, no app nag.
 
+<img width="1656" height="1291" alt="Screenshot 2026-08-11 at 22 19 19" src="https://github.com/user-attachments/assets/e2382265-d89d-4d7e-80fe-52a5558ffc96" />
+
+<img width="1656" height="1291" alt="Screenshot 2026-08-11 at 22 20 01" src="https://github.com/user-attachments/assets/35c718ba-6184-4016-9dab-54b869f8b845" />
+
+<img width="1656" height="1291" alt="Screenshot 2026-08-11 at 22 20 16" src="https://github.com/user-attachments/assets/02fd6565-0e59-4607-9617-a6ee95032cab" />
+
 ## Run
 
 ```sh
