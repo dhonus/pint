@@ -1,5 +1,6 @@
 import { getPin, getRelated } from './api.js';
-import { createCard, appendCards } from './cards.js';
+import { createCard } from './cards.js';
+import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
 
 // Each entry is one level of the dig. Entries stay mounted when deeper layers
@@ -28,6 +29,8 @@ export function initLayers(options) {
 export const depth = () => stack.length;
 export const isOpen = () => stack.length > 0;
 export const chain = () => stack.map((layer) => layer.pin.id);
+/** The only interactive layer — where arrow-key selection should apply. */
+export const topElement = () => stack.at(-1)?.el || null;
 
 /** Open a pin as a new layer on top of whatever is already there. */
 export async function open(pinOrId) {
@@ -55,15 +58,17 @@ export async function open(pinOrId) {
     layer.bookmark = data.bookmark;
     layer.done = !data.bookmark;
     hydrate(layer);
-    appendCards(layer.grid, data.related, { onOpen: open, size: 'sub' });
-    layer.more.hidden = layer.done;
-    layer.status.hidden = true;
+    addRelated(layer, data.related);
+    layer.more.hidden = true;
+    layer.spinner.hidden = true;
     if (!data.related.length) {
       layer.status.hidden = false;
       layer.status.textContent = 'No related pins for this one.';
     }
+    watchScroll(layer);
   } catch (err) {
     if (!stack.includes(layer)) return;
+    layer.spinner.hidden = true;
     layer.status.hidden = false;
     layer.status.textContent = err.message;
   }
@@ -74,6 +79,7 @@ export function popTo(target) {
   const keep = Math.max(0, target);
   while (stack.length > keep) {
     const layer = stack.pop();
+    layer.observer?.disconnect();
     layer.el.classList.add('leaving');
     layer.el.addEventListener('transitionend', () => layer.el.remove(), { once: true });
     setTimeout(() => layer.el.remove(), 400);
@@ -168,6 +174,8 @@ function build(layer) {
       <div class="layer-related">
         <h3>More like this</h3>
         <div class="sub-grid"></div>
+        <div class="layer-sentinel"></div>
+        <div class="spinner" hidden></div>
         <p class="status" hidden>Loading…</p>
         <button type="button" class="more" hidden>Load more</button>
       </div>
@@ -178,7 +186,10 @@ function build(layer) {
   layer.more = el.querySelector('.more');
   layer.status = el.querySelector('.status');
   layer.hero = el.querySelector('.layer-hero img');
-  layer.status.hidden = false;
+  layer.sentinel = el.querySelector('.layer-sentinel');
+  layer.spinner = el.querySelector('.spinner');
+  layer.spinner.hidden = false;
+  layer.status.hidden = true;
 
   el.querySelector('.layer-close').addEventListener('click', () => {
     const index = stack.indexOf(layer);
@@ -189,8 +200,29 @@ function build(layer) {
 
   hydrate(layer);
   root.append(el);
+  // Masonry needs the element measurable, so build it once it's in the document.
+  layer.masonry = createMasonry(layer.grid, { gap: 14, minColumn: 200 });
   // Let the entering transform paint before settling into place.
   requestAnimationFrame(() => el.classList.remove('entering'));
+}
+
+function addRelated(layer, pins) {
+  layer.masonry.append(pins, (pin) => createCard(pin, { onOpen: open, size: 'sub' }));
+}
+
+/**
+ * Keep the related feed loading itself. Using the layer as the observer root
+ * works whichever descendant actually scrolls (it changes with the breakpoint).
+ */
+function watchScroll(layer) {
+  if (layer.observer) return;
+  layer.observer = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMore(layer);
+    },
+    { root: layer.el, rootMargin: '900px' },
+  );
+  layer.observer.observe(layer.sentinel);
 }
 
 function hydrate(layer) {
@@ -227,17 +259,22 @@ async function loadMore(layer) {
   if (layer.loading || layer.done) return;
   layer.loading = true;
   layer.more.hidden = true;
-  layer.status.hidden = false;
-  layer.status.textContent = 'Loading more…';
+  layer.status.hidden = true;
+  layer.spinner.hidden = false;
 
   try {
     const data = await getRelated(layer.pin.id, layer.bookmark);
     if (!stack.includes(layer)) return;
-    appendCards(layer.grid, data.pins, { onOpen: open, size: 'sub' });
+    addRelated(layer, data.pins);
     layer.bookmark = data.bookmark;
     layer.done = !data.bookmark;
-    layer.status.hidden = true;
-    layer.more.hidden = layer.done;
+    // Only a fallback now that the feed loads itself.
+    layer.more.hidden = true;
+    if (layer.done) {
+      layer.observer?.disconnect();
+      layer.status.hidden = false;
+      layer.status.textContent = 'End of related pins.';
+    }
   } catch (err) {
     if (!stack.includes(layer)) return;
     layer.status.hidden = false;
@@ -245,5 +282,16 @@ async function loadMore(layer) {
     layer.more.hidden = false;
   } finally {
     layer.loading = false;
+    if (stack.includes(layer)) {
+      layer.spinner.hidden = true;
+      rearm(layer);
+    }
   }
+}
+
+/** Same re-arm trick as the main grid: force a fresh intersection report. */
+function rearm(layer) {
+  if (layer.done || !layer.observer) return;
+  layer.observer.unobserve(layer.sentinel);
+  requestAnimationFrame(() => layer.observer?.observe(layer.sentinel));
 }

@@ -6,8 +6,14 @@ let el;
 let img;
 let label;
 let open = false;
+// Zoom (from the shelf) stays up until dismissed, unlike hold-to-peek.
+let sticky = false;
 
 export const isPeeking = () => open;
+
+// A keydown can target `document` or `window`, which have no `.matches`.
+const isTyping = (target) =>
+  target instanceof Element && target.matches('input, textarea, [contenteditable]');
 
 export function initPeek() {
   el = document.createElement('div');
@@ -16,19 +22,21 @@ export function initPeek() {
   el.innerHTML = '<img alt="" /><p></p>';
   img = el.querySelector('img');
   label = el.querySelector('p');
+  el.addEventListener('click', hide);
   document.body.append(el);
 
   addEventListener('keydown', (event) => {
-    if (event.code !== 'Space' || event.repeat) return;
-    if (event.target.matches('input, textarea')) return;
+    if (event.code !== 'Space' || isTyping(event.target)) return;
     const pin = getActivePin();
-    if (!pin) return;
+    if (!pin && !open) return;
+    // Must run on repeats too, or the page scrolls the whole time it's held.
     event.preventDefault();
+    if (event.repeat || open) return;
     show(pin);
   });
 
   addEventListener('keyup', (event) => {
-    if (event.code === 'Space') hide();
+    if (event.code === 'Space' && !sticky) hide();
   });
 
   // Releasing the key outside the window would otherwise leave it stuck open.
@@ -36,7 +44,7 @@ export function initPeek() {
 }
 
 function show(pin) {
-  img.src = pin.large || pin.thumb;
+  img.src = pin.full || pin.large || pin.thumb;
   img.style.backgroundColor = pin.color;
   if (pin.width && pin.height) img.style.aspectRatio = `${pin.width} / ${pin.height}`;
   label.textContent = pin.title || '';
@@ -45,9 +53,18 @@ function show(pin) {
   open = true;
 }
 
+/** Click-to-zoom: stays open until dismissed with Esc or another click. */
+export function zoom(pin) {
+  show(pin);
+  sticky = true;
+  el.classList.add('sticky');
+}
+
 export function hide() {
   if (!open) return;
   el.hidden = true;
+  el.classList.remove('sticky');
   img.removeAttribute('src');
   open = false;
+  sticky = false;
 }

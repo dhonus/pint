@@ -151,47 +151,25 @@ main {
 
 /* ---------- masonry grid ---------- */
 
-.grid {
-  column-count: 2;
-  column-gap: 16px;
+/* Real columns, not `column-count`: appending must never move what's already
+   on screen. See masonry.js. */
+.masonry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--masonry-gap, 16px);
 }
 
-@media (min-width: 640px) {
-  .grid {
-    column-count: 3;
-  }
-}
-@media (min-width: 960px) {
-  .grid {
-    column-count: 4;
-  }
-}
-@media (min-width: 1280px) {
-  .grid {
-    column-count: 5;
-  }
-}
-@media (min-width: 1600px) {
-  .grid {
-    column-count: 6;
-  }
-}
-
-.sub-grid {
-  column-count: 2;
-  column-gap: 12px;
-}
-
-@media (min-width: 720px) {
-  .sub-grid {
-    column-count: 3;
-  }
+.masonry-col {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--masonry-gap, 16px);
 }
 
 .card {
   position: relative;
-  break-inside: avoid;
-  margin: 0 0 16px;
+  margin: 0;
 }
 
 .card-open {
@@ -217,7 +195,11 @@ main {
   transform: scale(1.015);
 }
 
-.card-open:focus-visible {
+/* Plain :focus too, since arrow-key selection focuses these programmatically
+   and must always be visible. */
+.card-open:focus,
+.card-open:focus-visible,
+.shelf-open:focus {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
@@ -271,13 +253,37 @@ main {
   -webkit-box-orient: vertical;
 }
 
-.card-sub {
-  margin-bottom: 12px;
-}
-
 .more {
   display: block;
   margin: 24px auto 40px;
+}
+
+/* ---------- spinner ---------- */
+
+.spinner {
+  width: 26px;
+  height: 26px;
+  margin: 28px auto 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.layer-related .spinner {
+  margin: 20px auto 24px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
 }
 
 /* ---------- layers ---------- */
@@ -302,8 +308,8 @@ main {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: min(1120px, 94vw);
-  height: min(86vh, 900px);
+  width: min(1500px, 96vw);
+  height: min(93vh, 1150px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -394,28 +400,46 @@ main {
   padding: 8px 12px;
 }
 
+/* The hero column is fixed and only the feed scrolls, so the image is always
+   whole — never clipped by the layer's bottom edge. */
 .layer-body {
   flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  /* Without an explicit bounded row the row sizes to the image and the hero
+     overflows the layer — `height: 100%` would resolve against content. */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 22px;
   padding: 18px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .layer-hero {
-  position: sticky;
-  top: 0;
-  align-self: start;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .layer-hero img {
   display: block;
-  width: 100%;
-  max-height: 70vh;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+.layer-related {
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
 }
 
 .layer-related h3 {
@@ -430,15 +454,25 @@ main {
 @media (max-width: 800px) {
   .layer {
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     border-radius: 0;
     border: none;
   }
+  /* Narrow screens scroll the whole body instead, hero first. */
   .layer-body {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow-y: auto;
   }
   .layer-hero {
-    position: static;
+    height: auto;
+  }
+  .layer-hero img {
+    max-height: 62dvh;
+  }
+  .layer-related {
+    height: auto;
+    overflow: visible;
   }
 }
 
@@ -634,7 +668,7 @@ main {
 
 .compare-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 18px;
   padding: 20px;
   align-items: start;
@@ -645,11 +679,40 @@ main {
   margin: 0;
 }
 
+.compare-item .shelf-open {
+  cursor: zoom-in;
+}
+
 .compare-item .shelf-open img {
   width: 100%;
   height: auto;
   border-radius: var(--radius);
   background: var(--surface);
+  transition: transform 0.18s ease;
+}
+
+.compare-item:hover .shelf-open img {
+  transform: scale(1.015);
+}
+
+/* Revealed on hover so the grid stays clean while you're comparing. */
+.shelf-dig {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  opacity: 0;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  border: none;
+  backdrop-filter: blur(4px);
+  transition: opacity 0.15s ease;
+}
+
+.compare-item:hover .shelf-dig,
+.compare-item:focus-within .shelf-dig {
+  opacity: 1;
 }
 
 .compare-item figcaption {
@@ -675,6 +738,12 @@ main {
   pointer-events: none;
   background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(6px);
+}
+
+/* Zoom (click from the shelf) stays put and is dismissable, so it takes clicks. */
+.peek.sticky {
+  pointer-events: auto;
+  cursor: zoom-out;
 }
 
 .peek img {

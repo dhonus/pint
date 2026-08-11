@@ -1,5 +1,6 @@
 import { searchPins } from './api.js';
-import { appendCards, getActivePin } from './cards.js';
+import { createCard, getActivePin } from './cards.js';
+import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
 import * as layers from './layers.js';
 import { initShelf, isComparing, closeCompare } from './shelf-ui.js';
@@ -11,8 +12,10 @@ const grid = document.getElementById('grid');
 const statusEl = document.getElementById('status');
 const moreBtn = document.getElementById('more');
 const sentinel = document.getElementById('sentinel');
+const spinner = document.getElementById('loading');
 
 const state = { query: '', bookmark: null, loading: false, done: false };
+const masonry = createMasonry(grid, { gap: 16, minColumn: 240 });
 // True while replaying a history entry, so we don't push new ones as we go.
 let restoring = false;
 
@@ -29,29 +32,33 @@ async function loadResults({ reset = false } = {}) {
   moreBtn.hidden = true;
 
   if (reset) {
-    grid.replaceChildren();
+    masonry.clear();
     state.bookmark = null;
     state.done = false;
   }
-  setStatus(reset ? 'Searching…' : 'Loading more…');
+  setStatus('');
+  spinner.hidden = false;
 
   try {
     const data = await searchPins(state.query, state.bookmark);
     // A newer search may have started while this was in flight.
     if (data.query !== state.query) return;
 
-    appendCards(grid, data.pins, { onOpen: openLayer });
+    masonry.append(data.pins, (pin) => createCard(pin, { onOpen: openLayer }));
     state.bookmark = data.bookmark;
     state.done = !data.bookmark;
 
-    if (!grid.childElementCount) setStatus(`No results for “${state.query}”.`);
+    if (!masonry.count()) setStatus(`No results for “${state.query}”.`);
     else setStatus(state.done ? 'End of results.' : '');
-    moreBtn.hidden = state.done;
+    // The grid loads itself; this is only a retry affordance after a failure.
+    moreBtn.hidden = true;
   } catch (err) {
     setStatus(err.message);
-    moreBtn.hidden = !grid.childElementCount && !state.bookmark;
+    moreBtn.hidden = false;
   } finally {
     state.loading = false;
+    spinner.hidden = true;
+    rearmGrid();
   }
 }
 
@@ -61,8 +68,9 @@ function runSearch(query) {
   document.title = query ? `${query} · pint` : 'pint';
 
   if (!query) {
-    grid.replaceChildren();
+    masonry.clear();
     moreBtn.hidden = true;
+    spinner.hidden = true;
     state.bookmark = null;
     state.done = false;
     setStatus('Search for something to start. Hold Space to peek, S to shelf.');
@@ -143,24 +151,87 @@ form.addEventListener('submit', (event) => {
   event.preventDefault();
   const query = input.value.trim();
   if (!query || query === state.query) return;
+  // Closing the layers is part of this one navigation, not a separate one.
+  restoring = true;
   layers.closeAll();
+  restoring = false;
   runSearch(query).then(pushState);
 });
 
 moreBtn.addEventListener('click', () => loadResults());
 
 // Infinite scroll for the results grid; paused while a layer covers it.
-new IntersectionObserver(
+const gridObserver = new IntersectionObserver(
   (entries) => {
     if (!entries.some((entry) => entry.isIntersecting)) return;
     if (layers.isOpen() || !state.query || state.done) return;
     loadResults();
   },
   { rootMargin: '600px' },
-).observe(sentinel);
+);
+gridObserver.observe(sentinel);
+
+/**
+ * An observer only reports *changes* in intersection. After a batch lands the
+ * sentinel is usually still inside the margin, so it never fires again and
+ * loading stalls. Re-observing forces a fresh report of the current state.
+ */
+function rearmGrid() {
+  if (state.done) return;
+  gridObserver.unobserve(sentinel);
+  requestAnimationFrame(() => gridObserver.observe(sentinel));
+}
+
+// A keydown can target `document` or `window`, which have no `.matches`.
+const isTyping = (target) =>
+  target instanceof Element && target.matches('input, textarea, [contenteditable]');
+
+/** Whichever surface is on top is the one the arrow keys should walk. */
+function selectable() {
+  if (isComparing()) return [...document.querySelectorAll('.compare-item .shelf-open')];
+  const top = layers.topElement();
+  if (top) return [...top.querySelectorAll('.sub-grid .card-open')];
+  return [...grid.querySelectorAll('.card-open')];
+}
+
+/**
+ * Move by geometry rather than DOM order: masonry columns mean the next element
+ * in the document is rarely the one that looks like it's next to you.
+ */
+function moveSelection(direction) {
+  const items = selectable();
+  if (!items.length) return;
+
+  const index = items.indexOf(document.activeElement);
+  if (index === -1) {
+    items[0].focus();
+    return;
+  }
+
+  const from = items[index].getBoundingClientRect();
+  const fromX = from.left + from.width / 2;
+  const fromY = from.top + from.height / 2;
+
+  let best = null;
+  let bestScore = Infinity;
+  items.forEach((el, i) => {
+    if (i === index) return;
+    const rect = el.getBoundingClientRect();
+    const dx = rect.left + rect.width / 2 - fromX;
+    if (direction === 'right' ? dx <= 4 : dx >= -4) return;
+    // Weight vertical drift so it prefers something on roughly the same line.
+    const score = Math.abs(dx) + Math.abs(rect.top + rect.height / 2 - fromY) * 1.6;
+    if (score < bestScore) {
+      bestScore = score;
+      best = el;
+    }
+  });
+
+  best?.focus();
+}
 
 addEventListener('keydown', (event) => {
-  if (event.target.matches('input, textarea')) {
+  if (isTyping(event.target)) {
     if (event.key === 'Escape') event.target.blur();
     return;
   }
@@ -168,9 +239,9 @@ addEventListener('keydown', (event) => {
 
   switch (event.key) {
     case 'Escape':
-      // Unwind the shallowest thing that's open first.
-      if (isComparing()) closeCompare();
-      else if (isPeeking()) hidePeek();
+      // Unwind topmost first: a zoom sits over the shelf, which sits over layers.
+      if (isPeeking()) hidePeek();
+      else if (isComparing()) closeCompare();
       else if (layers.isOpen()) layers.pop();
       break;
     case 'Backspace':
@@ -185,6 +256,11 @@ addEventListener('keydown', (event) => {
       if (pin) shelf.toggle(pin);
       break;
     }
+    case 'ArrowRight':
+    case 'ArrowLeft':
+      event.preventDefault();
+      moveSelection(event.key === 'ArrowRight' ? 'right' : 'left');
+      break;
     case '/':
       event.preventDefault();
       input.focus();

@@ -4,6 +4,10 @@ import { shelf } from './shelf.js';
 // pin you're looking at without a click first.
 let activePin = null;
 export const getActivePin = () => activePin;
+/** Let non-card surfaces (the shelf) take part in Space-to-peek too. */
+export const setActivePin = (pin) => {
+  activePin = pin;
+};
 
 /** Reflect shelf membership on every rendered card at once. */
 shelf.subscribe(() => {
