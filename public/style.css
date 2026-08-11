@@ -1,0 +1,159 @@
+:root {
+  --bg: #ffffff;
+  --surface: #f2f2f4;
+  --text: #16161a;
+  --muted: #6b6b74;
+  --border: #dedee3;
+  --accent: #c8232c;
+  --accent-text: #ffffff;
+  --radius: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121215;
+    --surface: #1e1e23;
+    --text: #f2f2f4;
+    --muted: #9a9aa4;
+    --border: #303038;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+}
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+#search-form {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  max-width: 720px;
+}
+
+#search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 16px;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  outline: none;
+}
+
+#search-input:focus {
+  border-color: var(--accent);
+}
+
+button {
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: 999px;
+  padding: 11px 20px;
+}
+
+button:hover {
+  filter: brightness(1.08);
+}
+
+main {
+  padding: 20px;
+}
+
+.status {
+  margin: 40px auto;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* CSS columns give a masonry layout without any layout maths in JS. */
+.grid {
+  column-count: 2;
+  column-gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    column-count: 3;
+  }
+}
+@media (min-width: 960px) {
+  .grid {
+    column-count: 4;
+  }
+}
+@media (min-width: 1280px) {
+  .grid {
+    column-count: 5;
+  }
+}
+@media (min-width: 1600px) {
+  .grid {
+    column-count: 6;
+  }
+}
+
+.card {
+  break-inside: avoid;
+  margin: 0 0 16px;
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.card figcaption {
+  padding: 6px 4px 0;
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.more {
+  display: block;
+  margin: 24px auto 40px;
+}

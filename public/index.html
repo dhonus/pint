@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>pint</title>
+    <link rel="stylesheet" href="/style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📌</text></svg>"
+    />
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">pint</a>
+      <form id="search-form" role="search">
+        <input
+          id="search-input"
+          type="search"
+          name="q"
+          placeholder="Search for anything…"
+          autocomplete="off"
+          autofocus
+        />
+        <button type="submit" aria-label="Search">Search</button>
+      </form>
+    </header>
+
+    <main>
+      <p id="status" class="status" hidden></p>
+      <div id="grid" class="grid"></div>
+      <div id="sentinel"></div>
+      <button id="more" class="more" hidden>Load more</button>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

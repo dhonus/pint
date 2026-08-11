@@ -1,0 +1,13 @@
+{
+  "name": "pint",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An alternative frontend for Pinterest",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
