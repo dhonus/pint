@@ -5,24 +5,55 @@ const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
   '(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+const SEARCH_HANDLER = 'www/search/[scope].js';
+const PIN_HANDLER = 'www/pin/[id].js';
+
 // Pinterest's web API rejects anonymous calls unless the CSRF header matches the
 // csrftoken cookie. It never validates the value itself, so we mint our own and
 // keep it for the lifetime of the process.
 const csrfToken = crypto.randomBytes(16).toString('hex');
 
-function headers(referer) {
-  return {
-    'User-Agent': UA,
-    Accept: 'application/json, text/javascript, */*, q=0.01',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'X-Requested-With': 'XMLHttpRequest',
-    'X-APP-VERSION': '4a1b2c3',
-    'X-Pinterest-AppState': 'active',
-    'X-Pinterest-PWS-Handler': 'www/search/[scope].js',
-    'X-CSRFToken': csrfToken,
-    Cookie: `csrftoken=${csrfToken}`,
-    Referer: referer,
-  };
+/**
+ * Call one of Pinterest's internal `/resource/<Name>/get/` endpoints.
+ * The PWS-Handler header must match the page the call would come from, or the
+ * endpoint answers 403 "Invalid Resource Request".
+ */
+async function callResource(name, options, { sourceUrl, handler }) {
+  const data = { options, context: {} };
+  const url =
+    `${ORIGIN}/resource/${name}/get/` +
+    `?source_url=${encodeURIComponent(sourceUrl)}` +
+    `&data=${encodeURIComponent(JSON.stringify(data))}`;
+
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': UA,
+      Accept: 'application/json, text/javascript, */*, q=0.01',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-APP-VERSION': '4a1b2c3',
+      'X-Pinterest-AppState': 'active',
+      'X-Pinterest-PWS-Handler': handler,
+      'X-CSRFToken': csrfToken,
+      Cookie: `csrftoken=${csrfToken}`,
+      Referer: ORIGIN + sourceUrl,
+    },
+  });
+
+  if (!res.ok) {
+    throw Object.assign(new Error(`Pinterest returned ${res.status}`), {
+      status: res.status === 429 ? 429 : res.status === 404 ? 404 : 502,
+    });
+  }
+
+  const body = await res.json();
+  const resource = body.resource_response || {};
+  if (resource.status && resource.status !== 'success') {
+    throw Object.assign(new Error(resource.message || 'Pinterest request failed'), {
+      status: 502,
+    });
+  }
+  return resource;
 }
 
 /** Pull the image variants we care about out of a raw pin object. */
@@ -35,6 +66,7 @@ function pickImages(pin) {
     thumb: thumb.url,
     thumbWidth: thumb.width || null,
     thumbHeight: thumb.height || null,
+    large: images['736x']?.url || orig?.url || thumb.url,
     full: orig?.url || thumb.url,
   };
 }
@@ -45,12 +77,13 @@ function normalizePin(pin) {
   return {
     id: pin.id,
     title: (pin.grid_title || pin.title || '').trim(),
-    description: (pin.description || '').trim(),
+    description: (pin.description || pin.closeup_unified_description || '').trim(),
     // Aspect ratio lets the grid reserve space before the image loads.
     width: images.thumbWidth,
     height: images.thumbHeight,
     color: pin.dominant_color || '#2a2a2e',
     thumb: images.thumb,
+    large: images.large,
     full: images.full,
     domain: pin.domain || '',
     link: pin.link || null,
@@ -58,50 +91,82 @@ function normalizePin(pin) {
   };
 }
 
+/** The related feed interleaves non-pin cards ("story" units) we can't render. */
+function normalizeFeed(items) {
+  return (items || [])
+    .filter((item) => !item.type || item.type === 'pin')
+    .map(normalizePin)
+    .filter(Boolean);
+}
+
+/** "-end-" is Pinterest's sentinel for "no more pages". */
+function nextBookmark(resource) {
+  const mark = resource.bookmark || null;
+  return mark && mark !== '-end-' ? mark : null;
+}
+
 /**
  * Search pins.
- * @param {string} query
- * @param {string} [bookmark] opaque cursor returned by a previous call
  * @returns {Promise<{pins: object[], bookmark: string|null}>}
  */
 export async function searchPins(query, bookmark) {
   const sourceUrl = `/search/pins/?q=${encodeURIComponent(query)}`;
-  const data = {
-    options: {
+  const resource = await callResource(
+    'BaseSearchResource',
+    {
       query,
       scope: 'pins',
       bookmarks: bookmark ? [bookmark] : [],
       page_size: 25,
       no_fetch_context_on_resource: false,
     },
-    context: {},
-  };
-  const url =
-    `${ORIGIN}/resource/BaseSearchResource/get/` +
-    `?source_url=${encodeURIComponent(sourceUrl)}` +
-    `&data=${encodeURIComponent(JSON.stringify(data))}`;
-
-  const res = await fetch(url, { headers: headers(ORIGIN + sourceUrl) });
-  if (!res.ok) {
-    throw Object.assign(new Error(`Pinterest returned ${res.status}`), {
-      status: res.status === 429 ? 429 : 502,
-    });
-  }
-
-  const body = await res.json();
-  const resource = body.resource_response || {};
-  if (resource.status && resource.status !== 'success') {
-    throw Object.assign(new Error(resource.message || 'Pinterest request failed'), {
-      status: 502,
-    });
-  }
-
-  const results = resource.data?.results || [];
-  const next = resource.bookmark || null;
+    { sourceUrl, handler: SEARCH_HANDLER },
+  );
   return {
-    pins: results.map(normalizePin).filter(Boolean),
-    // "-end-" is Pinterest's sentinel for "no more pages".
-    bookmark: next && next !== '-end-' ? next : null,
+    pins: normalizeFeed(resource.data?.results),
+    bookmark: nextBookmark(resource),
+  };
+}
+
+/** Full detail for a single pin. */
+export async function getPin(id) {
+  const resource = await callResource(
+    'PinResource',
+    { id, field_set_key: 'detailed', fetch_visual_search_objects: false },
+    { sourceUrl: `/pin/${id}/`, handler: PIN_HANDLER },
+  );
+  const raw = resource.data;
+  if (!raw?.id) throw Object.assign(new Error('Pin not found'), { status: 404 });
+
+  const pin = normalizePin(raw);
+  if (!pin) throw Object.assign(new Error('Pin has no image'), { status: 404 });
+
+  return {
+    ...pin,
+    alt: (raw.alt_text || raw.auto_alt_text || '').trim(),
+    pinner: raw.pinner
+      ? { username: raw.pinner.username, name: raw.pinner.full_name || '' }
+      : null,
+    board: raw.board ? { name: raw.board.name, url: raw.board.url } : null,
+  };
+}
+
+/** The "more like this" feed for a pin — the fuel for digging deeper. */
+export async function getRelated(id, bookmark) {
+  const resource = await callResource(
+    'RelatedPinFeedResource',
+    {
+      pin: id,
+      page_size: 25,
+      bookmarks: bookmark ? [bookmark] : [],
+      add_vase: true,
+      prepend: false,
+    },
+    { sourceUrl: `/pin/${id}/`, handler: PIN_HANDLER },
+  );
+  return {
+    pins: normalizeFeed(resource.data),
+    bookmark: nextBookmark(resource),
   };
 }
 
