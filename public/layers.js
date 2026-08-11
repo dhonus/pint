@@ -1,4 +1,4 @@
-import { getPin, getRelated } from './api.js';
+import { getPin, getRelated, isAbort } from './api.js';
 import { createCard } from './cards.js';
 import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
@@ -14,6 +14,9 @@ let onChange = () => {};
 
 // How many layers stay visible behind the top one before they fade out.
 const VISIBLE_DEPTH = 4;
+
+// How long the arrow keys must settle before a layer fetches its detail feed.
+const STEP_DEBOUNCE_MS = 250;
 
 export function initLayers(options) {
   root = options.root;
@@ -62,7 +65,7 @@ export async function open(pinOrId, context) {
 }
 
 /** Swap the hero for its neighbour in the feed this layer came from. */
-export async function step(delta) {
+export function step(delta) {
   const layer = stack.at(-1);
   if (!layer || layer.index < 0) return;
 
@@ -79,11 +82,31 @@ export async function step(delta) {
   layer.masonry.clear();
   layer.related.scrollTop = 0;
   layer.body.scrollTop = 0;
+  // The image swaps now, from the summary we already have in hand.
   hydrate(layer);
   restyle();
   // Stepping is browsing, not a new destination, so don't stack history entries.
   onChange({ replace: true });
-  await fill(layer);
+  scheduleFill(layer);
+}
+
+/**
+ * Hold off on the network until the arrow keys settle. Blowing through ten
+ * images shouldn't mean ten round trips to Pinterest — the hero is already
+ * showing, and only the detail and related feed need fetching.
+ */
+function scheduleFill(layer) {
+  clearTimeout(layer.fillTimer);
+  cancelFill(layer);
+  layer.spinner.hidden = false;
+  layer.status.hidden = true;
+  layer.fillTimer = setTimeout(() => fill(layer), STEP_DEBOUNCE_MS);
+}
+
+/** Drop any in-flight request whose result we no longer want. */
+function cancelFill(layer) {
+  layer.controller?.abort();
+  layer.controller = null;
 }
 
 /** Load detail and the first page of related pins into an existing layer. */
@@ -91,9 +114,14 @@ async function fill(layer) {
   layer.spinner.hidden = false;
   layer.status.hidden = true;
 
+  const controller = new AbortController();
+  layer.controller = controller;
+  const requested = layer.pin.id;
+
   try {
-    const data = await getPin(layer.pin.id);
-    if (!stack.includes(layer) || layer.pin.id !== data.pin.id) return;
+    const data = await getPin(requested, controller.signal);
+    // Bail if the layer went away or stepped on while this was in flight.
+    if (!stack.includes(layer) || layer.pin.id !== requested) return;
     // Keep the position we already know; detail has no sibling context.
     layer.pin = data.pin;
     layer.bookmark = data.bookmark;
@@ -108,7 +136,8 @@ async function fill(layer) {
     }
     watchScroll(layer);
   } catch (err) {
-    if (!stack.includes(layer)) return;
+    // A superseded request isn't a failure worth showing.
+    if (isAbort(err) || !stack.includes(layer) || layer.pin.id !== requested) return;
     layer.spinner.hidden = true;
     layer.status.hidden = false;
     layer.status.textContent = err.message;
@@ -120,6 +149,8 @@ export function popTo(target) {
   const keep = Math.max(0, target);
   while (stack.length > keep) {
     const layer = stack.pop();
+    clearTimeout(layer.fillTimer);
+    cancelFill(layer);
     layer.el.classList.add('leaving');
     layer.el.addEventListener('transitionend', () => layer.el.remove(), { once: true });
     setTimeout(() => layer.el.remove(), 400);
@@ -323,9 +354,11 @@ async function loadMore(layer) {
   layer.status.hidden = true;
   layer.spinner.hidden = false;
 
+  const requested = layer.pin.id;
   try {
-    const data = await getRelated(layer.pin.id, layer.bookmark);
-    if (!stack.includes(layer)) return;
+    const data = await getRelated(requested, layer.bookmark);
+    // A step while this was in flight means these pins belong to another pin.
+    if (!stack.includes(layer) || layer.pin.id !== requested) return;
     addRelated(layer, data.pins);
     layer.bookmark = data.bookmark;
     layer.done = !data.bookmark;
@@ -342,7 +375,8 @@ async function loadMore(layer) {
     layer.more.hidden = false;
   } finally {
     layer.loading = false;
-    if (stack.includes(layer)) {
+    // Don't clear a spinner that now belongs to a pending step.
+    if (stack.includes(layer) && layer.pin.id === requested) {
       layer.spinner.hidden = true;
       // If the new page still didn't reach past the fold, keep going.
       requestAnimationFrame(() => layer.checkScroll?.());
