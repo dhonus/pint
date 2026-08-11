@@ -124,3 +124,11 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`pint listening on http://localhost:${PORT}`);
 });
+
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    server.close(() => process.exit(0));
+    // Don't let a hung keep-alive connection hold the shutdown open.
+    setTimeout(() => process.exit(0), 3000).unref();
+  });
+}

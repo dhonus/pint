@@ -1,0 +1,18 @@
+services:
+  pint:
+    build: .
+    container_name: pint
+    restart: unless-stopped
+    # Reaps zombies and forwards signals properly.
+    init: true
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+    # pint never writes to disk — it only reads its own files and streams
+    # everything else straight through.
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

@@ -41,6 +41,23 @@ PORT=8080 npm start
 
 Needs Node 20+ for built-in `fetch`. That's it — there's nothing to install.
 
+### Docker
+
+```bash
+docker compose up -d
+```
+
+Or without compose:
+
+```bash
+docker build -t pint .
+docker run -d --name pint --init -p 3000:3000 --restart unless-stopped pint
+```
+
+Set `PORT` to change the port inside the container. There are no volumes and no state on disk —
+the shelf and recent searches live in your browser's localStorage, so the container is disposable.
+Put it behind your reverse proxy and you're done.
+
 ## Keys
 
 | Key           | Action                                                                     |
