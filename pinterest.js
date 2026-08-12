@@ -14,9 +14,48 @@ const PIN_HANDLER = 'www/pin/[id].js';
 const DEBUG = process.env.PINT_DEBUG === '1';
 
 // Pinterest's web API rejects anonymous calls unless the CSRF header matches the
-// csrftoken cookie. It never validates the value itself, so we mint our own and
-// keep it for the lifetime of the process.
+// csrftoken cookie. It never validates the value itself, so we mint our own as
+// a fallback when the site doesn't hand us one.
 const csrfToken = crypto.randomBytes(16).toString('hex');
+
+let sessionPromise = null;
+
+/**
+ * Fetch the homepage once and keep the cookies it sets.
+ *
+ * A minted csrftoken alone is enough from a residential IP, but a request
+ * carrying no real session is the sort of thing Pinterest answers with an empty
+ * feed when it doesn't trust where you're calling from.
+ */
+async function bootstrapSession() {
+  const jar = new Map();
+  try {
+    const res = await fetch(ORIGIN + '/', {
+      headers: {
+        'User-Agent': UA,
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+    for (const cookie of res.headers.getSetCookie?.() ?? []) {
+      const [pair] = cookie.split(';');
+      const eq = pair.indexOf('=');
+      if (eq > 0) jar.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
+    if (DEBUG) console.log(`session: http=${res.status} cookies=[${[...jar.keys()]}]`);
+  } catch (err) {
+    console.warn(`session: could not reach Pinterest (${err.message}), using a minted token`);
+  }
+  // Whatever happened, we still need a csrftoken to echo back.
+  if (!jar.has('csrftoken')) jar.set('csrftoken', csrfToken);
+  return jar;
+}
+
+function session(refresh = false) {
+  if (refresh) sessionPromise = null;
+  sessionPromise ||= bootstrapSession();
+  return sessionPromise;
+}
 
 /**
  * Call one of Pinterest's internal `/resource/<Name>/get/` endpoints.
@@ -30,6 +69,7 @@ async function callResource(name, options, { sourceUrl, handler }) {
     `?source_url=${encodeURIComponent(sourceUrl)}` +
     `&data=${encodeURIComponent(JSON.stringify(data))}`;
 
+  const jar = await session();
   const res = await fetch(url, {
     headers: {
       'User-Agent': UA,
@@ -39,8 +79,8 @@ async function callResource(name, options, { sourceUrl, handler }) {
       'X-APP-VERSION': '4a1b2c3',
       'X-Pinterest-AppState': 'active',
       'X-Pinterest-PWS-Handler': handler,
-      'X-CSRFToken': csrfToken,
-      Cookie: `csrftoken=${csrfToken}`,
+      'X-CSRFToken': jar.get('csrftoken'),
+      Cookie: [...jar].map(([key, value]) => `${key}=${value}`).join('; '),
       Referer: ORIGIN + sourceUrl,
     },
   });
@@ -145,21 +185,31 @@ function nextBookmark(resource) {
  */
 export async function searchPins(query, bookmark) {
   const sourceUrl = `/search/pins/?q=${encodeURIComponent(query)}`;
-  const resource = await callResource(
-    'BaseSearchResource',
-    {
-      query,
-      scope: 'pins',
-      bookmarks: bookmark ? [bookmark] : [],
-      page_size: 25,
-      no_fetch_context_on_resource: false,
-    },
-    { sourceUrl, handler: SEARCH_HANDLER },
-  );
-  return {
-    pins: normalizeFeed(resource.data?.results, `search "${query}"`),
-    bookmark: nextBookmark(resource),
-  };
+  const run = () =>
+    callResource(
+      'BaseSearchResource',
+      {
+        query,
+        scope: 'pins',
+        bookmarks: bookmark ? [bookmark] : [],
+        page_size: 25,
+        no_fetch_context_on_resource: false,
+      },
+      { sourceUrl, handler: SEARCH_HANDLER },
+    );
+
+  let resource = await run();
+  let pins = normalizeFeed(resource.data?.results, `search "${query}"`);
+
+  // A successful-but-empty first page usually means the session was rejected
+  // rather than that nothing matched. Worth one retry on a fresh one.
+  if (!pins.length && !bookmark) {
+    await session(true);
+    resource = await run();
+    pins = normalizeFeed(resource.data?.results, `search "${query}" (retry)`);
+  }
+
+  return { pins, bookmark: nextBookmark(resource) };
 }
 
 /** Full detail for a single pin. */
