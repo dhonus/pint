@@ -17,6 +17,9 @@ onShelvesChange(() => {
   for (const el of document.querySelectorAll('.card[data-id]')) markSaved(el, el.dataset.id);
 });
 
+// How long a touch must rest on a pin before the shelf menu opens.
+const LONG_PRESS_MS = 420;
+
 const BOOKMARK =
   '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' +
   '<path d="M6 2h12a1 1 0 0 1 1 1v18l-7-4-7 4V3a1 1 0 0 1 1-1z"/></svg>';
@@ -61,8 +64,40 @@ export function createCard(pin, { onOpen, size = 'grid' } = {}) {
   img.style.backgroundColor = pin.color;
   open.append(img);
 
-  open.addEventListener('click', () => onOpen?.(pin));
+  // A long press is the touch equivalent of right-click; the tap that follows
+  // it must not also open the pin.
+  let pressTimer = null;
+  let pressFired = false;
+
+  open.addEventListener('click', () => {
+    if (pressFired) {
+      pressFired = false;
+      return;
+    }
+    onOpen?.(pin);
+  });
   card.append(open);
+
+  card.addEventListener('pointerdown', (event) => {
+    if (event.pointerType !== 'touch') return;
+    pressFired = false;
+    pressTimer = setTimeout(() => {
+      pressFired = true;
+      setActivePin(pin, card);
+      card.dispatchEvent(
+        new CustomEvent('pin:menu', {
+          bubbles: true,
+          detail: { pin, x: event.clientX, y: event.clientY },
+        }),
+      );
+    }, LONG_PRESS_MS);
+  });
+
+  const cancelPress = () => clearTimeout(pressTimer);
+  card.addEventListener('pointerup', cancelPress);
+  card.addEventListener('pointercancel', cancelPress);
+  // Any movement means a scroll, not a press.
+  card.addEventListener('pointermove', cancelPress, { passive: true });
 
   const save = document.createElement('button');
   save.type = 'button';

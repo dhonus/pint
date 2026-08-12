@@ -6,6 +6,11 @@
  * lose your place. Here each column is its own element: a new card goes to the
  * shortest one and nothing already on screen moves.
  */
+/**
+ * @param {{gap?: number, minColumn?: number | (() => number)}} options
+ *   `minColumn` may be a function so the narrowest column can shrink on phones,
+ *   where a desktop-width column would leave a single towering strip.
+ */
 export function createMasonry(container, { gap = 16, minColumn = 230 } = {}) {
   const items = [];
   let columns = [];
@@ -14,11 +19,13 @@ export function createMasonry(container, { gap = 16, minColumn = 230 } = {}) {
   container.style.setProperty('--masonry-gap', `${gap}px`);
 
   const width = () => container.clientWidth || container.getBoundingClientRect().width;
+  const smallest = () => (typeof minColumn === 'function' ? minColumn() : minColumn);
 
   function targetCount() {
     const available = width();
     if (!available) return columns.length || 1;
-    return Math.max(1, Math.floor((available + gap) / (minColumn + gap)));
+    const min = smallest();
+    return Math.max(1, Math.floor((available + gap) / (min + gap)));
   }
 
   function build(count) {

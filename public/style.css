@@ -365,8 +365,10 @@ main {
   width: 30px;
   height: 30px;
   padding: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   opacity: 0;
   border: none;
   color: #fff;
@@ -650,7 +652,8 @@ main {
 @media (max-width: 800px) {
   .layer {
     width: 100vw;
-    height: 100dvh;
+    /* Of `.layers`, which already stops above the stash bar. */
+    height: 100%;
     border-radius: 0;
     border: none;
   }
@@ -764,11 +767,7 @@ main {
   opacity: 1;
 }
 
-@media (max-width: 900px) {
-  .rail {
-    display: none;
-  }
-}
+
 
 /* ---------- shelf ---------- */
 
@@ -809,8 +808,10 @@ main {
 }
 
 .shelf-label b {
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   min-width: 20px;
   height: 20px;
   margin-left: 4px;
@@ -861,8 +862,12 @@ main {
   width: 20px;
   height: 20px;
   padding: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The inherited 1.5 line-height makes the glyph's box taller than the button
+     and drops it off centre. */
+  line-height: 1;
   font-size: 11px;
   color: #fff;
   background: rgba(0, 0, 0, 0.7);
@@ -982,8 +987,10 @@ main {
 }
 
 .open-shelves b {
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   min-width: 20px;
   height: 20px;
   padding: 0 6px;
@@ -1426,6 +1433,209 @@ main {
   .toast {
     color: #16161a;
     background: #f2f2f4;
+  }
+}
+
+/* ---------- touch and small screens ---------- */
+
+/* Without a pointer there is no hover, so anything revealed on hover would
+   never appear at all. Show it permanently instead. */
+@media (hover: none) {
+  .card-shelf,
+  .shelf-remove,
+  .shelf-dig,
+  .shelf-card-actions {
+    opacity: 1;
+  }
+
+  /* Fingers need more than a 30px target. */
+  .card-shelf {
+    width: 36px;
+    height: 36px;
+  }
+
+  .shelf-remove {
+    width: 26px;
+    height: 26px;
+    top: -8px;
+    right: -8px;
+  }
+
+  .card:hover .card-open img,
+  .compare-item:hover .shelf-open img {
+    transform: none;
+  }
+
+  /* Stop iOS offering its own image menu on a long press. */
+  .card,
+  .shelf-tile,
+  .compare-item {
+    -webkit-touch-callout: none;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --shelf-h: 78px;
+  }
+
+  header {
+    gap: 10px;
+    padding: 9px 12px;
+  }
+
+  .brand {
+    font-size: 18px;
+  }
+
+  main {
+    padding: 14px 12px;
+  }
+
+  .home {
+    margin-top: 4vh;
+  }
+
+  /* The layer fills the screen, minus the stash bar the container already
+     excludes — 100dvh here would overflow it. */
+  .layer {
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .layer-head {
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    padding: 10px 12px;
+  }
+
+  .layer-title {
+    flex-basis: 100%;
+    order: -1;
+  }
+
+  .layer-actions {
+    flex: 1;
+    flex-wrap: wrap;
+  }
+
+  .layer-actions button,
+  .layer-source {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .layer-body {
+    gap: 14px;
+    padding: 12px;
+  }
+
+  /* The stash bar gets tighter, and clears the home indicator. */
+  .shelf {
+    gap: 8px;
+    padding: 0 10px calc(env(safe-area-inset-bottom, 0px) * 0.6);
+  }
+
+  .shelf-label {
+    display: none;
+  }
+
+  .shelf-item .shelf-open img {
+    width: 50px;
+    height: 50px;
+  }
+
+  .shelf button {
+    padding: 7px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  /* Full bleed: screen space is the scarce thing here. */
+  .shelves {
+    padding: 0;
+  }
+
+  .shelves-panel {
+    border: none;
+    border-radius: 0;
+  }
+
+  .shelves > .shelves-panel > header,
+  .shelves-body {
+    padding: 12px;
+  }
+
+  .shelf-cards {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  .shelves-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+
+  .compare-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .picker {
+    width: min(280px, calc(100vw - 20px));
+  }
+
+  .peek img {
+    max-height: 74dvh;
+  }
+
+  .toast {
+    bottom: calc(var(--shelf-h) + 14px);
+  }
+}
+
+/* The trail becomes a horizontal strip above the stash bar, where a thumb can
+   actually reach it, instead of a column pinned to one edge. */
+@media (max-width: 900px) {
+  .rail {
+    flex-direction: row;
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: calc(var(--shelf-h) + 10px);
+    transform: translateX(-50%);
+    max-width: calc(100vw - 20px);
+    overflow-x: auto;
+    scrollbar-width: none;
+    border-radius: 999px;
+    padding: 8px 10px;
+  }
+
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail-chip {
+    flex: none;
+    width: 38px;
+    height: 38px;
+  }
+
+  /* Side-switching is a cursor idea; keep it centred on touch. */
+  .rail.on-right,
+  .rail.exit-left,
+  .rail.exit-right,
+  .rail.enter-left,
+  .rail.enter-right {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+
+  .rail.exit-left,
+  .rail.exit-right {
+    opacity: 1;
   }
 }
 

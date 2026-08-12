@@ -39,7 +39,11 @@ const guidesEl = document.getElementById('guides');
 
 // `pins` is kept so a layer opened from the grid can walk left/right along it.
 const state = { query: '', bookmark: null, loading: false, done: false, pins: [] };
-const masonry = createMasonry(grid, { gap: 16, minColumn: 240 });
+// Two columns on a phone, wider ones as the screen allows.
+const masonry = createMasonry(grid, {
+  gap: 16,
+  minColumn: () => (innerWidth < 640 ? 150 : 240),
+});
 // True while replaying a history entry, so we don't push new ones as we go.
 let restoring = false;
 

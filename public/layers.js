@@ -27,6 +27,9 @@ const RAIL_FADE_MS = 120;
 let railSide = 'left';
 let railTimer = null;
 
+// How far a finger must travel across the hero to count as "next image".
+const SWIPE_MIN_PX = 60;
+
 export function initLayers(options) {
   root = options.root;
   rail = options.rail;
@@ -328,14 +331,48 @@ function build(layer) {
       }),
     );
   };
+  const hero = el.querySelector('.layer-hero');
   file.addEventListener('click', openMenu);
-  el.querySelector('.layer-hero').addEventListener('contextmenu', openMenu);
+  hero.addEventListener('contextmenu', openMenu);
+
+  // Swiping the image walks the feed, since a phone has no arrow keys.
+  let startX = 0;
+  let startY = 0;
+  let swiping = false;
+  hero.addEventListener(
+    'touchstart',
+    (event) => {
+      if (event.touches.length !== 1) return;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+      swiping = true;
+    },
+    { passive: true },
+  );
+  hero.addEventListener(
+    'touchend',
+    (event) => {
+      if (!swiping) return;
+      swiping = false;
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      // Clearly horizontal, so a scroll down the page doesn't count.
+      if (Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        step(dx < 0 ? 1 : -1);
+      }
+    },
+    { passive: true },
+  );
   layer.more.addEventListener('click', () => loadMore(layer));
 
   hydrate(layer);
   root.append(el);
   // Masonry needs the element measurable, so build it once it's in the document.
-  layer.masonry = createMasonry(layer.grid, { gap: 14, minColumn: 200 });
+  layer.masonry = createMasonry(layer.grid, {
+    gap: 14,
+    minColumn: () => (innerWidth < 640 ? 140 : 200),
+  });
   // Let the entering transform paint before settling into place.
   requestAnimationFrame(() => el.classList.remove('entering'));
 }
