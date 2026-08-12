@@ -15,8 +15,10 @@ your results, and you can dig as deep as you like without losing the trail that 
 - search with a masonry grid that lazy loads and never reshuffles what's already on screen
 - **layers** — pins open on top of the frozen grid, and related pins stack another layer on top of that
 - the **rail** on the left is your trail, click any level to pop straight back to it
-- **shelf** — press `s` on any pin at any depth, it stays there across searches and reloads
-- **compare** blows the shelf up into a full grid, for seeing six jackets next to each other
+- **stash** — tap `s` on any pin at any depth to throw it in the tray at the bottom, local and disposable
+- **shelves** — save a stash as a named shelf, kept server side. hold `s` or right-click a pin to file it straight into one
+- **everything** view puts every pin from every shelf in one scroll
+- **compare** blows the stash up into a full grid, for seeing six jackets next to each other
 - hold `space` to peek at whatever you're pointing at, no click needed
 - arrow keys walk the big image sideways through the feed it came from
 - back/forward drive the layer stack instead of leaving the page
@@ -51,12 +53,15 @@ Or without compose:
 
 ```bash
 docker build -t pint .
-docker run -d --name pint --init -p 3000:3000 --restart unless-stopped pint
+docker run -d --name pint --init -p 3000:3000 -v pint-data:/data --restart unless-stopped pint
 ```
 
-Set `PORT` to change the port inside the container. There are no volumes and no state on disk —
-the shelf and recent searches live in your browser's localStorage, so the container is disposable.
-Put it behind your reverse proxy and you're done.
+Publish elsewhere with `PINT_PORT=8080 docker compose up -d`, or bind it to localhost only
+(`127.0.0.1:8080:3000`) if it sits behind a reverse proxy.
+
+Saved shelves live in the `pint-data` volume — that's the only state, so it's the only thing worth
+backing up. The stash and recent searches are browser-side and don't follow you between devices.
+`PINT_DEBUG=1` logs what Pinterest actually replies with, worth turning on if results come back empty.
 
 ## Keys
 
@@ -64,7 +69,8 @@ Put it behind your reverse proxy and you're done.
 |---------------|----------------------------------------------------------------------------|
 | `←` `→`       | move sideways. in a layer this swaps the big image itself, over a zoomed shelf image it walks the shelf, on the grid it moves the selection |
 | `space`       | hold to peek, release to dismiss                                           |
-| `s`           | add the pin under the cursor to the shelf                                  |
+| `s`           | tap to stash the pin under the cursor, hold to pick a shelf to file it into |
+| right-click   | same shelf picker, on any pin                                              |
 | `esc`         | step back — zoom first, then compare, then one layer                       |
 | `backspace`   | step back one layer                                                        |
 | `/`           | focus the search box                                                       |
@@ -96,6 +102,18 @@ Put it behind your reverse proxy and you're done.
 
 Pass a returned `bookmark` back for the next page, `null` means the end. Image URLs in responses
 already point at `/api/image`.
+
+Shelves are the only thing that accepts writes:
+
+| Endpoint                              | Method                                    |
+|---------------------------------------|-------------------------------------------|
+| `/api/shelves`                        | `GET` list (`?full=1` for pins), `POST` create |
+| `/api/shelves/<id>`                   | `GET`, `PATCH` (`name`, `addPins`), `DELETE` |
+| `/api/shelves/<id>/pins/<pinId>`      | `DELETE`                                  |
+
+They're stored as one JSON file in `PINT_DATA` (default `./data`), written atomically. Incoming
+pins are stripped to the fields that get rendered, and image URLs are only accepted if they point
+at pint's own proxy.
 
 ## How it talks to Pinterest
 
