@@ -99,7 +99,8 @@
         <header>
           <button type="button" class="shelves-back" hidden aria-label="Back">←</button>
           <h2 class="shelves-title">Shelves</h2>
-          <div class="shelves-actions">
+          <div class="shelves-actions panel-actions">
+            <input class="size-slider" aria-label="Image size" hidden />
             <button type="button" class="shelves-everything">Everything</button>
             <button type="button" class="shelves-close" aria-label="Close">✕</button>
           </div>
@@ -111,11 +112,16 @@
     <div id="toast" class="toast" hidden></div>
 
     <div id="compare" class="compare" hidden>
-      <header>
-        <h2>Shelf</h2>
-        <button type="button" class="compare-close" aria-label="Close">✕</button>
-      </header>
-      <div class="compare-grid"></div>
+      <div class="compare-panel">
+        <header>
+          <h2>Stash</h2>
+          <div class="panel-actions">
+            <input class="size-slider" aria-label="Image size" />
+            <button type="button" class="compare-close" aria-label="Close">✕</button>
+          </div>
+        </header>
+        <div class="compare-grid"></div>
+      </div>
     </div>
 
     <script src="/app.js" type="module"></script>

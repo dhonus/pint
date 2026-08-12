@@ -2,6 +2,7 @@ import { shelf } from './shelf.js';
 import { setActivePin } from './active.js';
 import { zoom } from './peek.js';
 import { openStashMenu } from './shelf-picker.js';
+import { initTileSize } from './tile-size.js';
 
 // The shelf bar lives at the bottom; "Compare" blows it up into a full grid so
 // you can see six jackets next to each other — the thing Pinterest can't do.
@@ -37,6 +38,11 @@ export function initShelf(options) {
     openStashMenu(shelf.list(), { anchor: push });
   });
   compareEl.querySelector('.compare-close').addEventListener('click', closeCompare);
+  initTileSize(compareEl.querySelector('.size-slider'));
+  // Clicking the dimmed area behind the panel closes it, like any modal.
+  compareEl.addEventListener('pointerdown', (event) => {
+    if (event.target === compareEl) closeCompare();
+  });
 
   shelf.subscribe(render);
   render();

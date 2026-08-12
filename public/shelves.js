@@ -1,6 +1,7 @@
 import { setActivePin } from './active.js';
 import { zoom } from './peek.js';
 import { attachMenuGesture } from './menu-gesture.js';
+import { initTileSize } from './tile-size.js';
 
 // Saved collections, kept on the server. The stash at the bottom of the screen
 // is the scratch space you fill while digging; a shelf is what you keep.
@@ -15,6 +16,7 @@ let body;
 let titleEl;
 let backBtn;
 let everythingBtn;
+let sizer;
 let mode = 'index';
 let current = null;
 let onNavigate = () => {};
@@ -197,10 +199,12 @@ function shelfCard(summary) {
   return card;
 }
 
-function setChrome(title, { back = false, everything = true } = {}) {
+function setChrome(title, { back = false, everything = true, sizes = false } = {}) {
   titleEl.textContent = title;
   backBtn.hidden = !back;
   everythingBtn.hidden = !everything;
+  // Nothing to resize on the index, which shows shelf covers rather than pins.
+  sizer.hidden = !sizes;
 }
 
 function empty(message) {
@@ -235,7 +239,7 @@ export async function showShelf(id) {
   mode = 'shelf';
   const { shelf } = await api('GET', `/${id}`);
   current = shelf;
-  setChrome(shelf.name, { back: true, everything: false });
+  setChrome(shelf.name, { back: true, everything: false, sizes: true });
   body.replaceChildren();
   body.append(
     shelf.pins.length ? grid(shelf.pins, shelf.id) : empty('This shelf is empty.'),
@@ -248,7 +252,7 @@ export async function showEverything() {
   mode = 'everything';
   current = null;
   const { shelves } = await api('GET', '?full=1');
-  setChrome('Everything', { back: true, everything: false });
+  setChrome('Everything', { back: true, everything: false, sizes: true });
   body.replaceChildren();
 
   const total = shelves.reduce((sum, shelf) => sum + shelf.pins.length, 0);
@@ -328,6 +332,8 @@ export function initShelves(options) {
   titleEl = root.querySelector('.shelves-title');
   backBtn = root.querySelector('.shelves-back');
   everythingBtn = root.querySelector('.shelves-everything');
+  sizer = root.querySelector('.size-slider');
+  initTileSize(sizer);
 
   backBtn.addEventListener('click', () => showIndex());
   everythingBtn.addEventListener('click', () => showEverything());

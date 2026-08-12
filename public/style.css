@@ -900,37 +900,77 @@ main {
 
 /* ---------- compare ---------- */
 
+/* A modal like the shelves view, rather than a second full page. */
 .compare {
   position: fixed;
   inset: 0;
   z-index: 70;
-  overflow-y: auto;
-  background: var(--bg);
+  display: grid;
+  place-items: center;
+  padding: 2vh 2vw;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  animation: shelves-fade 0.16s ease;
 }
 
-.compare header {
-  position: sticky;
-  top: 0;
+.compare-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  animation: shelves-rise 0.2s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.compare-panel > header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 14px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 90%, transparent);
-  backdrop-filter: blur(12px);
 }
 
-.compare header h2 {
+.compare-panel > header h2 {
   margin: 0;
   font-size: 16px;
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Scales the tiles in the shelf and compare grids together. */
+.size-slider {
+  width: 120px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+@media (max-width: 620px) {
+  .size-slider {
+    width: 84px;
+  }
+}
+
 .compare-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile, 190px), 1fr));
   gap: 18px;
   padding: 20px;
   align-items: start;
+  align-content: start;
+  overscroll-behavior: contain;
 }
 
 .compare-item {
@@ -1229,7 +1269,7 @@ main {
 
 .shelves-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--tile, 190px), 1fr));
   gap: 14px;
   align-items: start;
 }
@@ -1589,14 +1629,27 @@ main {
     gap: 12px;
   }
 
-  .shelves-grid {
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  /* The slider still governs, but a tile can't outgrow the screen. */
+  .shelves-grid,
+  .compare-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(var(--tile, 190px), 44vw), 1fr));
     gap: 10px;
   }
 
   .compare-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 12px;
+    padding: 12px;
+  }
+
+  .compare {
+    padding: 0;
+  }
+
+  .compare-panel {
+    border: none;
+    border-radius: 0;
+  }
+
+  .compare-panel > header {
     padding: 12px;
   }
 
