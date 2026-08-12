@@ -19,6 +19,14 @@ const VISIBLE_DEPTH = 4;
 // How long the arrow keys must settle before a layer fetches its detail feed.
 const STEP_DEBOUNCE_MS = 250;
 
+// The rail swaps sides at the middle of the window. The dead band is just wide
+// enough that a hand resting on the midpoint can't make it flicker.
+const RAIL_DEAD_ZONE_PX = 24;
+// Matches the CSS exit transition, so the jump happens while it's invisible.
+const RAIL_FADE_MS = 120;
+let railSide = 'left';
+let railTimer = null;
+
 export function initLayers(options) {
   root = options.root;
   rail = options.rail;
@@ -28,6 +36,20 @@ export function initLayers(options) {
   // Clicking the dimmed area steps back one level, like a soft "back".
   backdrop.addEventListener('click', () => pop());
   shelf.subscribe(syncShelfButtons);
+  onShelvesChange(syncShelfButtons);
+
+  // The trail follows the cursor's side of the screen, so stepping back a
+  // couple of layers never means crossing the whole window to reach it.
+  addEventListener(
+    'pointermove',
+    (event) => {
+      if (!stack.length) return;
+      const middle = innerWidth / 2;
+      if (event.clientX > middle + RAIL_DEAD_ZONE_PX) setRailSide('right');
+      else if (event.clientX < middle - RAIL_DEAD_ZONE_PX) setRailSide('left');
+    },
+    { passive: true },
+  );
 }
 
 export const depth = () => stack.length;
@@ -189,6 +211,30 @@ function restyle() {
   document.body.classList.toggle('layered', stack.length > 0);
   backdrop.hidden = stack.length === 0;
   renderRail();
+}
+
+/**
+ * Leave towards the side you're heading for, then arrive from the far edge of
+ * the new one — so the move reads as travel rather than a teleport, without
+ * dragging a pill across the images you're looking at.
+ */
+function setRailSide(side) {
+  if (side === railSide) return;
+  railSide = side;
+  clearTimeout(railTimer);
+
+  rail.classList.remove('enter-left', 'enter-right');
+  rail.classList.add(`exit-${side}`);
+
+  railTimer = setTimeout(() => {
+    rail.classList.remove(`exit-${side}`);
+    rail.classList.toggle('on-right', side === 'right');
+    rail.classList.add(`enter-${side}`);
+    // Two frames: one to apply the offset, one to animate away from it.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => rail.classList.remove(`enter-${side}`)),
+    );
+  }, RAIL_FADE_MS);
 }
 
 /** The rail is the trail: every level you opened, in order, clickable. */
