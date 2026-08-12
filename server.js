@@ -192,7 +192,7 @@ async function assetVersion() {
         .catch(() => 0),
     ),
   );
-  return Math.max(...stamps).toString(36);
+  return Math.floor(Math.max(...stamps)).toString(36);
 }
 
 async function serveIndex(file, req, res) {
@@ -241,6 +241,18 @@ async function serveStatic(pathname, req, res) {
     if (req.headers['if-none-match'] === etag) {
       res.writeHead(304, headers);
       return res.end();
+    }
+
+    // A module's own imports resolve without the parent's query string, so the
+    // rest of the graph would still come from a stale cache. Stamp them too.
+    if (path.extname(file) === '.js') {
+      const version = await assetVersion();
+      const code = (await fsp.readFile(file, 'utf8')).replace(
+        /(\bfrom\s+|\bimport\s+)'\.\/([\w-]+\.js)'/g,
+        `$1'./$2?v=${version}'`,
+      );
+      res.writeHead(200, { ...headers, 'Content-Length': Buffer.byteLength(code) });
+      return res.end(req.method === 'HEAD' ? undefined : code);
     }
 
     res.writeHead(200, { ...headers, 'Content-Length': stat.size });
