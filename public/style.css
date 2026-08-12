@@ -287,7 +287,7 @@ main {
 /* ---------- home ---------- */
 
 .home {
-  max-width: 780px;
+  max-width: 860px;
   margin: 8vh auto 40px;
   padding: 0 4px;
 }
@@ -354,6 +354,115 @@ main {
 
 .home-keys kbd + kbd {
   margin-left: 2px;
+}
+
+/* ---------- how it works ---------- */
+
+.how {
+  display: grid;
+  /* Fixed counts rather than auto-fit: four even columns, two on a phone.
+     Auto-fit leaves the last track collapsed and the widths uneven. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Wider gaps pull the tiles in a little and give them room to breathe. */
+  gap: 26px 30px;
+  margin: 0 0 38px;
+  padding: 0;
+  list-style: none;
+  counter-reset: how;
+}
+
+.how-step {
+  counter-increment: how;
+}
+
+.how-art {
+  display: block;
+  /* Fills its column, so the art and the words below it share an edge. */
+  width: 100%;
+  height: auto;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 6px;
+}
+
+/* Everything in the art is drawn from two tones: the page's own text colour
+   for structure, the accent for whatever the step is about. */
+.how-art .card,
+.how-art .chip {
+  fill: currentColor;
+  opacity: 0.17;
+}
+
+.how-art .ghost {
+  fill: var(--raised);
+  stroke: currentColor;
+  stroke-opacity: 0.25;
+  stroke-width: 1.5;
+}
+
+.how-art .panel {
+  fill: var(--raised);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.how-art .shadow {
+  fill: currentColor;
+  opacity: 0.12;
+}
+
+.how-art .pill {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.3;
+  stroke-width: 1.5;
+}
+
+.how-art .trail {
+  fill: currentColor;
+  opacity: 0.22;
+}
+
+.how-art .tray {
+  fill: none;
+  stroke: currentColor;
+  stroke-opacity: 0.3;
+  stroke-width: 1.5;
+}
+
+.how-art .mark,
+.how-art .mark-fill {
+  fill: var(--accent);
+  opacity: 1;
+}
+
+.how-step h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+/* The step's number, so the sequence reads as a sequence. */
+.how-step h3::before {
+  content: counter(how);
+  display: grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  font-size: 11px;
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+.how-step p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--muted);
 }
 
 /* ---------- search guides ---------- */
@@ -1977,6 +2086,11 @@ main {
   .shelves > .shelves-panel > header,
   .shelves-body {
     padding: 12px;
+  }
+
+  .how {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px 22px;
   }
 
   .shelf-cards {
