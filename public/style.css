@@ -2039,7 +2039,9 @@ main {
     left: 50%;
     right: auto;
     top: auto;
-    bottom: calc(var(--shelf-h) + 10px);
+    /* The stash bar is tucked away whenever a layer is open, which is the only
+       time this is on screen — so it sits against the bottom, not above it. */
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
     transform: translateX(-50%);
     max-width: calc(100vw - 20px);
     overflow-x: auto;
