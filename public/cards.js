@@ -1,20 +1,35 @@
 import { shelf } from './shelf.js';
+import { shelvesFor, onShelvesChange } from './shelves.js';
+import { setActivePin } from './active.js';
 
 // Whatever the pointer or keyboard focus is on. Lets `S` and `Space` act on the
 // pin you're looking at without a click first.
-let activePin = null;
-export const getActivePin = () => activePin;
-/** Let non-card surfaces (the shelf) take part in Space-to-peek too. */
-export const setActivePin = (pin) => {
-  activePin = pin;
-};
 
-/** Reflect shelf membership on every rendered card at once. */
+/** Reflect stash membership on every rendered card at once. */
 shelf.subscribe(() => {
   for (const el of document.querySelectorAll('.card[data-id]')) {
     el.classList.toggle('shelved', shelf.has(el.dataset.id));
   }
 });
+
+/** Same for saved shelves, which is a different thing from the stash. */
+onShelvesChange(() => {
+  for (const el of document.querySelectorAll('.card[data-id]')) markSaved(el, el.dataset.id);
+});
+
+const BOOKMARK =
+  '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path d="M6 2h12a1 1 0 0 1 1 1v18l-7-4-7 4V3a1 1 0 0 1 1-1z"/></svg>';
+
+function markSaved(card, id) {
+  const names = shelvesFor(id);
+  card.classList.toggle('saved', names.length > 0);
+  const badge = card.querySelector('.card-saved');
+  if (!badge) return;
+  // Names go in the title attribute, never into markup.
+  badge.title = names.length ? `In ${names.join(', ')}` : '';
+  badge.innerHTML = BOOKMARK + (names.length > 1 ? `<b>${names.length}</b>` : '');
+}
 
 /**
  * Build a pin card.
@@ -60,17 +75,36 @@ export function createCard(pin, { onOpen, size = 'grid' } = {}) {
   });
   card.append(save);
 
+  // Always present, only visible once the pin is in a shelf.
+  const saved = document.createElement('span');
+  saved.className = 'card-saved';
+  card.append(saved);
+  markSaved(card, pin.id);
+
   if (pin.title) {
     const caption = document.createElement('figcaption');
     caption.textContent = pin.title;
     card.append(caption);
   }
 
-  const activate = () => {
-    activePin = pin;
-  };
+  const activate = () => setActivePin(pin, card);
   card.addEventListener('pointerenter', activate);
   card.addEventListener('focusin', activate);
+
+  // Right-click files the pin somewhere saved. Dispatched rather than handled
+  // here, so cards don't need to know the picker exists.
+  card.addEventListener('contextmenu', (event) => {
+    event.preventDefault();
+    activate();
+    card.dispatchEvent(
+      new CustomEvent('pin:menu', {
+        bubbles: true,
+        // No anchor: a context menu belongs at the cursor. Holding `s` is the
+        // one that hangs off the pin's `+`.
+        detail: { pin, x: event.clientX, y: event.clientY },
+      }),
+    );
+  });
 
   return card;
 }

@@ -1,4 +1,4 @@
-import { getActivePin } from './cards.js';
+import { getActivePin } from './active.js';
 
 // Hold Space to enlarge whatever you're pointing at, release to dismiss.
 // Most looks shouldn't even cost a click.

@@ -1,10 +1,24 @@
 import { searchPins } from './api.js';
-import { createCard, getActivePin } from './cards.js';
+import { createCard } from './cards.js';
+import { getActivePin, getActiveCard } from './active.js';
+import {
+  initShelves,
+  open as openShelves,
+  back as shelvesBack,
+  isShelvesOpen,
+  onShelvesChange,
+  viewState as shelvesView,
+  applyView as applyShelvesView,
+} from './shelves.js';
+import { initSuggest, hide as hideSuggest } from './suggest.js';
+import { initAllHScroll } from './hscroll.js';
+import { openPicker, close as closePicker, isPickerOpen, pickerKey } from './shelf-picker.js';
+import { toast } from './toast.js';
 import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
 import * as layers from './layers.js';
 import { initShelf, isComparing, closeCompare } from './shelf-ui.js';
-import { initHome, showHome, remember } from './home.js';
+import { initHome, showHome, remember, recentSearches } from './home.js';
 import {
   initPeek,
   isPeeking,
@@ -21,6 +35,7 @@ const statusEl = document.getElementById('status');
 const moreBtn = document.getElementById('more');
 const sentinel = document.getElementById('sentinel');
 const spinner = document.getElementById('loading');
+const guidesEl = document.getElementById('guides');
 
 // `pins` is kept so a layer opened from the grid can walk left/right along it.
 const state = { query: '', bookmark: null, loading: false, done: false, pins: [] };
@@ -54,6 +69,7 @@ async function loadResults({ reset = false } = {}) {
     // A newer search may have started while this was in flight.
     if (data.query !== state.query) return;
 
+    if (reset) renderGuides(data.guides);
     const start = state.pins.length;
     state.pins.push(...data.pins);
     masonry.append(data.pins, (pin, offset) =>
@@ -87,6 +103,7 @@ function runSearch(query) {
   if (!query) {
     masonry.clear();
     state.pins = [];
+    renderGuides([]);
     moreBtn.hidden = true;
     spinner.hidden = true;
     state.bookmark = null;
@@ -99,6 +116,35 @@ function runSearch(query) {
   showHome(false);
   remember(query);
   return loadResults({ reset: true });
+}
+
+/** Pinterest's refinement terms for the current search, as chips. */
+function renderGuides(guides) {
+  guidesEl.replaceChildren();
+  guidesEl.hidden = !guides?.length;
+  if (!guides?.length) return;
+
+  for (const guide of guides) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'guide';
+    if (guide.image) {
+      const img = document.createElement('img');
+      img.src = guide.image;
+      img.alt = '';
+      img.loading = 'lazy';
+      chip.append(img);
+    }
+    const label = document.createElement('span');
+    label.textContent = guide.label;
+    chip.append(label);
+    chip.title = guide.term;
+    chip.addEventListener('click', () => {
+      input.value = guide.term;
+      form.requestSubmit();
+    });
+    guidesEl.append(chip);
+  }
 }
 
 /* ---------- layers ---------- */
@@ -128,12 +174,15 @@ function currentUrl() {
   if (state.query) params.set('q', state.query);
   const trail = layers.chain();
   if (trail.length) params.set('pin', trail.join(','));
+  // The shelves overlay is a place you can be, so Back can leave it.
+  const view = shelvesView();
+  if (view) params.set('shelves', view.mode === 'shelf' ? view.id : view.mode);
   const qs = params.toString();
   return qs ? `/?${qs}` : '/';
 }
 
 function snapshot() {
-  return { q: state.query, chain: layers.chain() };
+  return { q: state.query, chain: layers.chain(), shelves: shelvesView() };
 }
 
 function pushState() {
@@ -142,18 +191,25 @@ function pushState() {
 
 function readUrl() {
   const params = new URLSearchParams(location.search);
+  const shelves = params.get('shelves');
   return {
     q: (params.get('q') || '').trim(),
     chain: (params.get('pin') || '').split(',').filter(Boolean),
+    shelves: !shelves
+      ? null
+      : shelves === 'index' || shelves === 'everything'
+        ? { mode: shelves }
+        : { mode: 'shelf', id: shelves },
   };
 }
 
-/** Replay a history entry: get the query right first, then the layer trail. */
+/** Replay a history entry: query, then the layer trail, then the overlay. */
 async function restore(target) {
   restoring = true;
   try {
     if (target.q !== state.query) await runSearch(target.q);
     await layers.setChain(target.chain || []);
+    await applyShelvesView(target.shelves || null);
   } finally {
     restoring = false;
   }
@@ -171,6 +227,25 @@ initShelf({
   onOpen: openLayer,
 });
 initPeek();
+initShelves({
+  root: document.getElementById('shelves'),
+  onOpen: openLayer,
+  onNavigate: () => {
+    if (!restoring) pushState();
+  },
+});
+
+initSuggest({ input, form, source: recentSearches });
+initAllHScroll();
+
+const shelvesBtn = document.getElementById('open-shelves');
+const shelvesCount = document.getElementById('shelves-count');
+shelvesBtn.addEventListener('click', openShelves);
+onShelvesChange((summaries) => {
+  shelvesCount.textContent = String(summaries.length);
+  shelvesBtn.classList.toggle('has-shelves', summaries.length > 0);
+});
+
 initHome({
   home: document.getElementById('home'),
   onPick: (query) => {
@@ -185,6 +260,9 @@ form.addEventListener('submit', (event) => {
   event.preventDefault();
   const query = input.value.trim();
   if (!query || query === state.query) return;
+  // Hand the keyboard back so `s`, arrows and space work on the results.
+  hideSuggest();
+  input.blur();
   // Closing the layers is part of this one navigation, not a separate one.
   restoring = true;
   layers.closeAll();
@@ -272,17 +350,71 @@ function moveSelection(direction) {
   best?.focus();
 }
 
+/* ---------- stash: tap to add, hold to file ---------- */
+
+const HOLD_MS = 320;
+let holdTimer = null;
+let holdCard = null;
+let holdFired = false;
+
+function startHold(pin) {
+  holdFired = false;
+  holdCard = getActiveCard();
+  // The ring filling on the card is the affordance — it tells you a hold is
+  // a thing before you've held long enough to find out.
+  holdCard?.classList.add('holding');
+  const card = holdCard;
+  holdTimer = setTimeout(() => {
+    holdFired = true;
+    endHold();
+    openPicker(pin, { anchor: card?.querySelector('.card-shelf') });
+  }, HOLD_MS);
+}
+
+function endHold() {
+  clearTimeout(holdTimer);
+  holdTimer = null;
+  holdCard?.classList.remove('holding');
+  holdCard = null;
+}
+
+// Right-click anywhere a card lives opens the same menu.
+addEventListener('pin:menu', (event) => {
+  const { pin, anchor, x, y } = event.detail;
+  openPicker(pin, { anchor, x, y });
+});
+
+addEventListener('keyup', (event) => {
+  if (event.key !== 's' && event.key !== 'S') return;
+  const wasHolding = holdTimer !== null;
+  endHold();
+  // A quick tap is the common case: stash it and get out of the way.
+  if (wasHolding && !holdFired) {
+    const pin = getActivePin();
+    if (pin) {
+      const added = shelf.toggle(pin);
+      toast(added ? 'Stashed' : 'Removed from stash');
+    }
+  }
+});
+
 addEventListener('keydown', (event) => {
   if (isTyping(event.target)) {
     if (event.key === 'Escape') event.target.blur();
     return;
   }
   if (event.metaKey || event.ctrlKey || event.altKey) return;
+  // The picker owns the keyboard while it's up.
+  if (pickerKey(event)) {
+    event.preventDefault();
+    return;
+  }
 
   switch (event.key) {
     case 'Escape':
       // Unwind topmost first: a zoom sits over the shelf, which sits over layers.
       if (isPeeking()) hidePeek();
+      else if (isShelvesOpen()) shelvesBack();
       else if (isComparing()) closeCompare();
       else if (layers.isOpen()) layers.pop();
       break;
@@ -294,8 +426,9 @@ addEventListener('keydown', (event) => {
       break;
     case 's':
     case 'S': {
+      if (event.repeat || holdTimer) break;
       const pin = getActivePin();
-      if (pin) shelf.toggle(pin);
+      if (pin) startHold(pin);
       break;
     }
     case 'ArrowRight':
@@ -325,5 +458,8 @@ const initial = readUrl();
 // `restore` skips runSearch when the query already matches, which on a cold
 // start with no query means nothing would ever show the empty state.
 showHome(!initial.q);
+// Focus the box only when there's nothing to browse yet — landing on results
+// with the caret in the search bar means `s` types instead of stashing.
+if (!initial.q) input.focus();
 history.replaceState({ q: initial.q, chain: initial.chain }, '', currentUrl());
 restore(initial).then(() => history.replaceState(snapshot(), '', currentUrl()));

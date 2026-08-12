@@ -1,6 +1,7 @@
 import { shelf } from './shelf.js';
-import { setActivePin } from './cards.js';
+import { setActivePin } from './active.js';
 import { zoom } from './peek.js';
+import { openStashMenu } from './shelf-picker.js';
 
 // The shelf bar lives at the bottom; "Compare" blows it up into a full grid so
 // you can see six jackets next to each other — the thing Pinterest can't do.
@@ -25,7 +26,15 @@ export function initShelf(options) {
 
   bar.querySelector('.shelf-compare').addEventListener('click', toggleCompare);
   bar.querySelector('.shelf-clear').addEventListener('click', () => {
-    if (confirm('Remove everything from the shelf?')) shelf.clear();
+    if (confirm('Empty the stash?')) shelf.clear();
+  });
+
+  // Promote the whole scratch pile into a shelf — a new one or an existing one.
+  const push = bar.querySelector('.shelf-push');
+  push.addEventListener('click', () => {
+    if (!shelf.count()) return;
+    closeCompare();
+    openStashMenu(shelf.list(), { anchor: push });
   });
   compareEl.querySelector('.compare-close').addEventListener('click', closeCompare);
 

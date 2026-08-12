@@ -2,6 +2,7 @@ import { getPin, getRelated, isAbort } from './api.js';
 import { createCard } from './cards.js';
 import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
+import { shelvesFor, onShelvesChange } from './shelves.js';
 
 // Each entry is one level of the dig. Entries stay mounted when deeper layers
 // open on top, so popping back is instant and keeps its scroll position.
@@ -235,7 +236,9 @@ function build(layer) {
         <p class="layer-meta"></p>
       </div>
       <div class="layer-actions">
-        <button type="button" class="layer-save">Shelf</button>
+        <span class="layer-in" hidden></span>
+        <button type="button" class="layer-save">Stash</button>
+        <button type="button" class="layer-file" title="File into a shelf">Shelf ▾</button>
         <a class="layer-source" target="_blank" rel="noopener noreferrer" hidden>Source ↗</a>
         <button type="button" class="layer-close" aria-label="Close layer">✕</button>
       </div>
@@ -267,6 +270,20 @@ function build(layer) {
     if (index >= 0) popTo(index);
   });
   el.querySelector('.layer-save').addEventListener('click', () => shelf.toggle(layer.pin));
+
+  // Same menu the grid gets, anchored to the button that opened it.
+  const file = el.querySelector('.layer-file');
+  const openMenu = (event) => {
+    event.preventDefault();
+    el.dispatchEvent(
+      new CustomEvent('pin:menu', {
+        bubbles: true,
+        detail: { pin: layer.pin, anchor: file, x: event.clientX, y: event.clientY },
+      }),
+    );
+  };
+  file.addEventListener('click', openMenu);
+  el.querySelector('.layer-hero').addEventListener('contextmenu', openMenu);
   layer.more.addEventListener('click', () => loadMore(layer));
 
   hydrate(layer);
@@ -341,9 +358,15 @@ function hydrate(layer) {
 function syncShelfButtons() {
   for (const layer of stack) {
     const button = layer.el.querySelector('.layer-save');
-    const saved = shelf.has(layer.pin.id);
-    button.classList.toggle('on', saved);
-    button.textContent = saved ? 'Shelved ✓' : 'Shelf';
+    const stashed = shelf.has(layer.pin.id);
+    button.classList.toggle('on', stashed);
+    button.textContent = stashed ? 'Stashed ✓' : 'Stash';
+
+    // Say which shelves already hold this pin, rather than making you check.
+    const names = shelvesFor(layer.pin.id);
+    const label = layer.el.querySelector('.layer-in');
+    label.hidden = names.length === 0;
+    label.textContent = names.length ? `In ${names.join(', ')}` : '';
   }
 }
 

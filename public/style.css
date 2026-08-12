@@ -8,6 +8,7 @@
   --accent: #c8232c;
   --accent-text: #ffffff;
   --radius: 14px;
+  --control-h: 40px;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
   --shelf-h: 92px;
 }
@@ -45,7 +46,8 @@ body {
 
 /* Freeze the results grid while a layer is open — it must never move. */
 body.layered,
-body.comparing {
+body.comparing,
+body.shelves-open {
   overflow: hidden;
 }
 
@@ -74,20 +76,24 @@ kbd {
 
 /* ---------- header ---------- */
 
+/* Everything in the header sits on one 40px baseline, so nothing looks like it
+   wandered in from another design. */
 header {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
+  gap: 14px;
+  padding: 11px 18px;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
 }
 
 .brand {
+  flex: none;
+  margin-right: 2px;
   font-size: 20px;
   font-weight: 700;
   color: var(--accent);
@@ -99,13 +105,20 @@ header {
   display: flex;
   flex: 1;
   gap: 8px;
-  max-width: 680px;
+  min-width: 0;
+  max-width: 620px;
+}
+
+#search-input,
+#search-form > button,
+.open-shelves {
+  height: var(--control-h);
 }
 
 #search-input {
   flex: 1;
   min-width: 0;
-  padding: 11px 16px;
+  padding: 0 16px;
   font: inherit;
   color: var(--text);
   background: var(--surface);
@@ -118,22 +131,26 @@ header {
   border-color: var(--accent);
 }
 
-#search-form button {
+/* Direct child only — the suggestions panel lives inside the form, and an ID
+   selector here would otherwise paint every suggestion like a submit button. */
+#search-form > button {
+  flex: none;
+  padding: 0 20px;
   font-weight: 600;
   color: var(--accent-text);
   background: var(--accent);
   border-color: transparent;
-  padding: 11px 20px;
 }
 
+/* Sits between the search and the shelves button, pushing the latter right. */
 .hints {
-  margin: 0;
+  margin: 0 0 0 auto;
   color: var(--muted);
   font-size: 12px;
   white-space: nowrap;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 1080px) {
   .hints {
     display: none;
   }
@@ -347,6 +364,38 @@ main {
   font-size: 14px;
 }
 
+/* Saved-to-a-shelf is a different state from stashed, so it gets its own mark:
+   a bookmark tab tucked into the top-left, always visible, not hover-only. */
+.card-saved {
+  position: absolute;
+  top: 0;
+  left: 10px;
+  display: none;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 6px 7px;
+  color: var(--accent-text);
+  background: var(--accent);
+  /* Notched bottom edge, so it reads as a ribbon rather than a pill. */
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 5px), 0 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+}
+
+.card-saved .icon {
+  width: 11px;
+  height: 11px;
+}
+
+.card-saved b {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.card.saved .card-saved {
+  display: flex;
+}
+
 .card figcaption {
   padding: 6px 4px 0;
   font-size: 13px;
@@ -500,6 +549,15 @@ main {
   color: var(--accent-text);
   background: var(--accent);
   border-color: transparent;
+}
+
+.layer-in {
+  font-size: 12px;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
 }
 
 .layer-close {
@@ -827,6 +885,474 @@ main {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+/* ---------- shelves ---------- */
+
+.open-shelves {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Inline SVG, sized in text terms and inheriting colour. */
+.icon {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex: none;
+}
+
+.open-shelves b {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--border);
+  font-size: 11px;
+}
+
+.open-shelves.has-shelves b {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+/* On narrow screens the label goes, leaving a compact icon button. */
+@media (max-width: 620px) {
+  .open-shelves span {
+    display: none;
+  }
+  .open-shelves {
+    padding: 0 12px;
+  }
+}
+
+/* A modal over the page, not a second page: the grid stays visible behind it,
+   dimmed, so it's obvious you're on top of something and can get back. */
+.shelves {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: grid;
+  place-items: center;
+  padding: 2vh 2vw;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  animation: shelves-fade 0.16s ease;
+}
+
+.shelves-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  animation: shelves-rise 0.2s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+@keyframes shelves-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes shelves-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shelves,
+  .shelves-panel {
+    animation: none;
+  }
+}
+
+.shelves > .shelves-panel > header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.shelves-title {
+  flex: 1;
+  margin: 0;
+  font-size: 17px;
+}
+
+.shelves-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.shelves-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+  overscroll-behavior: contain;
+}
+
+.shelf-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 18px;
+}
+
+.shelf-card {
+  position: relative;
+}
+
+.shelf-card-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+}
+
+/* Four thumbs as a 2x2 mosaic; fewer just fill the space. */
+.shelf-cover {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.shelf-cover[data-count="1"] {
+  grid-template-columns: 1fr;
+}
+
+.shelf-cover[data-count="1"] img,
+.shelf-cover[data-count="3"] img:first-child {
+  grid-row: span 2;
+}
+
+.shelf-cover[data-count="2"] img {
+  grid-row: span 2;
+}
+
+.shelf-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.shelf-card:hover .shelf-cover {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.shelf-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 9px 3px 0;
+}
+
+.shelf-meta span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.shelf-card-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.shelf-card:hover .shelf-card-actions,
+.shelf-card:focus-within .shelf-card-actions {
+  opacity: 1;
+}
+
+.shelf-card-actions button {
+  padding: 5px 11px;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  border: none;
+  backdrop-filter: blur(4px);
+}
+
+.shelf-card-actions .danger:hover {
+  background: var(--accent);
+}
+
+.shelves-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 30px 0 14px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.shelves-heading button {
+  padding: 0;
+  font: inherit;
+  color: var(--text);
+  background: none;
+  border: none;
+}
+
+.shelves-heading button:hover {
+  color: var(--accent);
+}
+
+.shelves-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.shelf-tile {
+  position: relative;
+  margin: 0;
+}
+
+.shelf-tile .shelf-open {
+  cursor: zoom-in;
+}
+
+.shelf-tile img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* ---------- search suggestions ---------- */
+
+/* Drawn as a continuation of the search bar rather than an OS dropdown, so the
+   input and the list read as one piece. */
+#search-form {
+  position: relative;
+}
+
+.suggest {
+  position: absolute;
+  top: calc(var(--control-h) + 8px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overscroll-behavior: contain;
+}
+
+.suggest .suggest-row {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggest .suggest-row:hover,
+.suggest .suggest-row.active {
+  background: var(--surface);
+}
+
+/* ---------- picker ---------- */
+
+.picker {
+  position: fixed;
+  z-index: 90;
+  width: 260px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  transform-origin: top left;
+  transition: opacity 0.13s ease, transform 0.13s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+.picker.opening {
+  opacity: 0;
+  transform: scale(0.94) translateY(-6px);
+}
+
+.picker-head {
+  padding: 10px 13px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-list {
+  overflow-y: auto;
+  padding: 5px;
+}
+
+.picker-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 9px;
+}
+
+.picker-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-row em {
+  flex: none;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.picker-row.active,
+.picker-row:hover {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+.picker-row.active em,
+.picker-row:hover em {
+  color: color-mix(in srgb, var(--accent-text) 75%, transparent);
+}
+
+/* Shelves that already hold this pin — picking one takes it back out. */
+.picker-has span {
+  color: var(--accent);
+}
+
+.picker-has em {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.picker-has.active span,
+.picker-has:hover span,
+.picker-has.active em,
+.picker-has:hover em {
+  color: var(--accent-text);
+}
+
+.picker-new {
+  border-bottom: 1px solid var(--border);
+  border-radius: 9px 9px 0 0;
+  margin-bottom: 4px;
+  padding-bottom: 10px;
+}
+
+/* The ring that fills while you hold S, so the gesture is discoverable. */
+.card.holding .card-shelf {
+  opacity: 1;
+  background: var(--accent);
+}
+
+.card.holding .card-shelf::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  animation: hold-ring 0.32s linear forwards;
+}
+
+@keyframes hold-ring {
+  from {
+    transform: scale(0.7);
+    opacity: 0.2;
+  }
+  to {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+
+/* ---------- toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--shelf-h) + 18px);
+  z-index: 95;
+  padding: 10px 18px;
+  border-radius: 999px;
+  color: var(--accent-text);
+  background: #16161a;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  opacity: 0;
+  transform: translate(-50%, 10px);
+  transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.2, 0.8, 0.25, 1);
+  pointer-events: none;
+}
+
+.toast.in {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.toast.error {
+  background: var(--accent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .toast {
+    color: #16161a;
+    background: #f2f2f4;
+  }
 }
 
 /* ---------- peek ---------- */
