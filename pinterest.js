@@ -8,6 +8,11 @@ const UA =
 const SEARCH_HANDLER = 'www/search/[scope].js';
 const PIN_HANDLER = 'www/pin/[id].js';
 
+// PINT_DEBUG=1 dumps what Pinterest actually replied. Worth turning on when a
+// deployment gets empty feeds — Pinterest answers datacenter and VPN exit IPs
+// with a valid, empty 200 rather than an error.
+const DEBUG = process.env.PINT_DEBUG === '1';
+
 // Pinterest's web API rejects anonymous calls unless the CSRF header matches the
 // csrftoken cookie. It never validates the value itself, so we mint our own and
 // keep it for the lifetime of the process.
@@ -46,8 +51,27 @@ async function callResource(name, options, { sourceUrl, handler }) {
     });
   }
 
-  const body = await res.json();
+  const text = await res.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    // Bot-detection pages come back as HTML with a 200.
+    console.error(`${name}: upstream sent non-JSON (${text.length}b): ${text.slice(0, 200)}`);
+    throw Object.assign(new Error('Pinterest sent an unexpected response'), { status: 502 });
+  }
+
   const resource = body.resource_response || {};
+  if (DEBUG) {
+    const data = resource.data;
+    const count = Array.isArray(data) ? data.length : data?.results?.length;
+    console.log(
+      `${name}: http=${res.status} status=${resource.status} items=${count ?? 'n/a'}` +
+        ` bookmark=${resource.bookmark ? 'yes' : 'no'}` +
+        (resource.message ? ` message=${resource.message}` : '') +
+        (count === 0 ? ` body=${text.slice(0, 400)}` : ''),
+    );
+  }
   if (resource.status && resource.status !== 'success') {
     throw Object.assign(new Error(resource.message || 'Pinterest request failed'), {
       status: 502,
@@ -92,11 +116,21 @@ function normalizePin(pin) {
 }
 
 /** The related feed interleaves non-pin cards ("story" units) we can't render. */
-function normalizeFeed(items) {
-  return (items || [])
+function normalizeFeed(items, label) {
+  const raw = items || [];
+  const pins = raw
     .filter((item) => !item.type || item.type === 'pin')
     .map(normalizePin)
     .filter(Boolean);
+
+  // An empty feed is the symptom of an IP Pinterest doesn't like — it answers
+  // 200 with nothing rather than an error. Say so, or it looks like a bug here.
+  if (raw.length && !pins.length) {
+    console.warn(`${label}: upstream sent ${raw.length} items, none renderable as pins`);
+  } else if (!raw.length) {
+    console.warn(`${label}: upstream returned an empty feed`);
+  }
+  return pins;
 }
 
 /** "-end-" is Pinterest's sentinel for "no more pages". */
@@ -123,7 +157,7 @@ export async function searchPins(query, bookmark) {
     { sourceUrl, handler: SEARCH_HANDLER },
   );
   return {
-    pins: normalizeFeed(resource.data?.results),
+    pins: normalizeFeed(resource.data?.results, `search "${query}"`),
     bookmark: nextBookmark(resource),
   };
 }
