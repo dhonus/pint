@@ -1885,6 +1885,21 @@ main {
     cursor: pointer;
   }
 
+  /* A detail view scrolls a nested container, so the browser never retracts
+     its own bottom bar the way it does on the results page. We can't ask it
+     to, but we can hand back our own bar's height while you're in there. */
+  .shelf {
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  body.layered .shelf {
+    transform: translateY(100%);
+  }
+
+  body.layered .layers {
+    bottom: 0;
+  }
+
   .shelf-caret {
     display: block;
     font-size: 11px;
