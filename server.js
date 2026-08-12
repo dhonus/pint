@@ -177,7 +177,45 @@ async function handleShelves(req, res, url) {
   return sendJson(res, 405, { error: 'Method not allowed' });
 }
 
-async function serveStatic(pathname, res) {
+/**
+ * A token that changes whenever the front end does, stamped onto the asset
+ * links in index.html. New headers can't rescue a copy the browser cached
+ * before it ever saw them — only a different URL can, so a deploy gets one.
+ */
+async function assetVersion() {
+  const files = ['style.css', 'app.js'];
+  const stamps = await Promise.all(
+    files.map((name) =>
+      fsp
+        .stat(path.join(PUBLIC_DIR, name))
+        .then((s) => s.mtimeMs)
+        .catch(() => 0),
+    ),
+  );
+  return Math.max(...stamps).toString(36);
+}
+
+async function serveIndex(file, req, res) {
+  const [html, version] = await Promise.all([fsp.readFile(file, 'utf8'), assetVersion()]);
+  const body = html
+    .replace('href="/style.css"', `href="/style.css?v=${version}"`)
+    .replace('src="/app.js"', `src="/app.js?v=${version}"`);
+
+  const etag = `W/"index-${version}"`;
+  const headers = {
+    'Content-Type': MIME['.html'],
+    'Cache-Control': 'no-cache',
+    ETag: etag,
+  };
+  if (req.headers['if-none-match'] === etag) {
+    res.writeHead(304, headers);
+    return res.end();
+  }
+  res.writeHead(200, { ...headers, 'Content-Length': Buffer.byteLength(body) });
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
+async function serveStatic(pathname, req, res) {
   const rel = pathname === '/' ? 'index.html' : pathname.slice(1);
   const file = path.join(PUBLIC_DIR, rel);
   // Reject anything that escapes the public directory.
@@ -187,10 +225,26 @@ async function serveStatic(pathname, res) {
   try {
     const stat = await fsp.stat(file);
     if (!stat.isFile()) throw new Error('not a file');
-    res.writeHead(200, {
+    if (rel === 'index.html') return await serveIndex(file, req, res);
+
+    // Size and mtime change whenever you deploy, so the tag changes with the
+    // deploy. `no-cache` means "revalidate before using", not "don't store" —
+    // unchanged files still come back as an empty 304.
+    const etag = `W/"${stat.size.toString(16)}-${stat.mtimeMs.toString(16)}"`;
+    const headers = {
       'Content-Type': MIME[path.extname(file)] || 'application/octet-stream',
-      'Content-Length': stat.size,
-    });
+      'Cache-Control': 'no-cache',
+      ETag: etag,
+      'Last-Modified': stat.mtime.toUTCString(),
+    };
+
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, headers);
+      return res.end();
+    }
+
+    res.writeHead(200, { ...headers, 'Content-Length': stat.size });
+    if (req.method === 'HEAD') return res.end();
     fs.createReadStream(file).pipe(res);
   } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -205,12 +259,14 @@ const server = http.createServer(async (req, res) => {
     if (url.pathname === '/api/shelves' || url.pathname.startsWith('/api/shelves/')) {
       return await handleShelves(req, res, url);
     }
-    if (req.method !== 'GET') return sendJson(res, 405, { error: 'Method not allowed' });
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return sendJson(res, 405, { error: 'Method not allowed' });
+    }
     if (url.pathname === '/api/search') return await handleSearch(url, res);
     if (url.pathname.startsWith('/api/pin/')) return await handlePin(url.pathname, res);
     if (url.pathname === '/api/related') return await handleRelated(url, res);
     if (url.pathname === '/api/image') return await handleImage(url, res);
-    return await serveStatic(url.pathname, res);
+    return await serveStatic(url.pathname, req, res);
   } catch (err) {
     console.error(`${url.pathname}: ${err.message}`);
     if (!res.headersSent) sendJson(res, err.status || 500, { error: err.message });
