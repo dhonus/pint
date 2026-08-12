@@ -643,6 +643,7 @@ main {
 .rail {
   position: fixed;
   left: 14px;
+  right: auto;
   top: calc((100% - var(--shelf-h)) / 2);
   transform: translateY(-50%);
   z-index: 50;
@@ -655,6 +656,47 @@ main {
   backdrop-filter: blur(10px);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
+  transition: opacity 0.12s ease, transform 0.18s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+
+/* Follows whichever side the cursor is on — see setRailSide in layers.js. */
+.rail.on-right {
+  left: auto;
+  right: 14px;
+}
+
+/* Slides off towards the side it's heading for... */
+.rail.exit-right {
+  opacity: 0;
+  transform: translateY(-50%) translateX(34px);
+}
+
+.rail.exit-left {
+  opacity: 0;
+  transform: translateY(-50%) translateX(-34px);
+}
+
+/* ...then comes in from the far edge of where it landed. */
+.rail.enter-right {
+  opacity: 0;
+  transform: translateY(-50%) translateX(-34px);
+}
+
+.rail.enter-left {
+  opacity: 0;
+  transform: translateY(-50%) translateX(34px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail {
+    transition: opacity 0.12s ease;
+  }
+  .rail.exit-right,
+  .rail.exit-left,
+  .rail.enter-right,
+  .rail.enter-left {
+    transform: translateY(-50%);
+  }
 }
 
 .rail-chip {
