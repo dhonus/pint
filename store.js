@@ -65,18 +65,48 @@ async function load() {
   return shelves;
 }
 
+/**
+ * Write to a sibling then rename, so a crash mid-write can't truncate the file.
+ * The error is propagated, not just logged: a shelf that only exists in memory
+ * is worse than one that visibly failed to save.
+ */
 function persist() {
-  // Write to a sibling then rename, so a crash mid-write can't truncate the file.
-  writing = writing.then(async () => {
+  const done = writing.catch(() => {}).then(async () => {
     const body = JSON.stringify({ shelves }, null, 2);
     const tmp = `${FILE}.${process.pid}.tmp`;
     await fsp.mkdir(DATA_DIR, { recursive: true });
     await fsp.writeFile(tmp, body);
     await fsp.rename(tmp, FILE);
   });
-  return writing.catch((err) => {
-    console.error(`shelves: write failed (${err.message})`);
+  // Keep the chain healthy so one failure doesn't poison every later write.
+  writing = done.catch(() => {});
+  return done.catch((err) => {
+    console.error(`shelves: could not write ${FILE} — ${err.message}`);
+    throw Object.assign(new Error(`Could not save to disk: ${err.message}`), { status: 500 });
   });
+}
+
+/**
+ * Fail loudly at startup rather than at the first save. An unwritable data dir
+ * is the single most likely deployment mistake — a missing mount, or one owned
+ * by a different uid than the container runs as.
+ */
+export async function checkStore() {
+  try {
+    await fsp.mkdir(DATA_DIR, { recursive: true });
+    const probe = path.join(DATA_DIR, `.probe.${process.pid}`);
+    await fsp.writeFile(probe, '');
+    await fsp.rm(probe);
+    return true;
+  } catch (err) {
+    console.error(
+      `\n!! shelves cannot be saved: ${DATA_DIR} is not writable (${err.message})\n` +
+        `   Set PINT_DATA to a writable path, and if it is a bind mount make sure\n` +
+        `   it is owned by the user the container runs as:\n` +
+        `     mkdir -p <path> && chown ${process.getuid?.() ?? 1000}:${process.getgid?.() ?? 1000} <path>\n`,
+    );
+    return false;
+  }
 }
 
 /** Summary view — enough to render the index without shipping every pin. */

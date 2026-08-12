@@ -13,6 +13,7 @@ import {
   updateShelf,
   deleteShelf,
   removePin,
+  checkStore,
   dataDir,
 } from './store.js';
 
@@ -217,9 +218,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`pint listening on http://localhost:${PORT}`);
-  console.log(`shelves stored in ${dataDir}`);
+  if (await checkStore()) console.log(`shelves stored in ${dataDir}`);
 });
 
 for (const signal of ['SIGTERM', 'SIGINT']) {
