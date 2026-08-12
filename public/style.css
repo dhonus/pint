@@ -761,6 +761,22 @@ main {
     border-radius: 0;
     border: none;
   }
+  /* Title on its own row, actions on theirs — always, whatever the title's
+     length. This has to start where the layer goes full screen, not at the
+     narrower phone breakpoint, or a short title leaves room beside it. */
+  .layer-head {
+    flex-wrap: wrap;
+  }
+
+  .layer-title {
+    flex-basis: 100%;
+    order: -1;
+  }
+
+  .layer-actions {
+    flex-basis: 100%;
+  }
+
   /* Narrow screens scroll the whole body instead, hero first. */
   .layer-body {
     flex-direction: column;
@@ -1318,8 +1334,12 @@ main {
 
 .shelves-title {
   flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 17px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .shelves-actions {
@@ -1931,6 +1951,16 @@ main {
 
   .compare-panel > header {
     padding: 12px;
+  }
+
+  /* Two columns is already the sensible layout at this width, and the tile
+     clamp below means most of the slider's travel does nothing here. */
+  .size-slider {
+    display: none;
+  }
+
+  .shelves-title {
+    font-size: 15px;
   }
 
   .picker {
