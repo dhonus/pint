@@ -35,6 +35,38 @@
   display: none !important;
 }
 
+/* Horizontal strips scroll without showing a bar — an overlay scrollbar across
+   a row of thumbnails is pure noise. The edges fade instead, which reads as
+   "there's more this way". */
+.hscroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+}
+
+/* Only fade the side with more content behind it — see hscroll.js. */
+.hscroll.can-right {
+  mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent 100%);
+}
+
+.hscroll.can-left {
+  mask-image: linear-gradient(to right, transparent 0, #000 26px);
+}
+
+.hscroll.can-left.can-right {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 26px,
+    #000 calc(100% - 26px),
+    transparent 100%
+  );
+}
+
+.hscroll::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   margin: 0;
   padding-bottom: var(--shelf-h);
@@ -796,8 +828,8 @@ main {
   gap: 8px;
   overflow-x: auto;
   height: 100%;
-  padding: 12px 0;
-  scrollbar-width: thin;
+  padding: 12px 2px;
+  min-width: 0;
 }
 
 .shelf-item {
