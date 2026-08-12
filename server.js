@@ -46,11 +46,20 @@ async function handleSearch(url, res) {
   const query = (url.searchParams.get('q') || '').trim();
   if (!query) return sendJson(res, 400, { error: 'Missing query' });
 
-  const { pins, bookmark } = await searchPins(
+  const { pins, guides, bookmark } = await searchPins(
     query.slice(0, 200),
     url.searchParams.get('bookmark') || undefined,
   );
-  sendJson(res, 200, { query, pins: pins.map(proxyImages), bookmark });
+  sendJson(res, 200, {
+    query,
+    pins: pins.map(proxyImages),
+    // Thumbnails go through the proxy like everything else.
+    guides: guides.map((guide) => ({
+      ...guide,
+      image: guide.image ? `/api/image?url=${encodeURIComponent(guide.image)}` : null,
+    })),
+    bookmark,
+  });
 }
 
 const PIN_ID = /^[0-9]+$/;

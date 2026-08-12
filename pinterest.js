@@ -200,6 +200,7 @@ export async function searchPins(query, bookmark) {
 
   let resource = await run();
   let pins = normalizeFeed(resource.data?.results, `search "${query}"`);
+  const guides = normalizeGuides(resource.data?.rankedGuides);
 
   // A successful-but-empty first page usually means the session was rejected
   // rather than that nothing matched. Worth one retry on a fresh one.
@@ -209,7 +210,23 @@ export async function searchPins(query, bookmark) {
     pins = normalizeFeed(resource.data?.results, `search "${query}" (retry)`);
   }
 
-  return { pins, bookmark: nextBookmark(resource) };
+  return { pins, guides, bookmark: nextBookmark(resource) };
+}
+
+/**
+ * Pinterest ships refinement terms alongside every search ("cute winter
+ * outfits", "winter outfits cold"). Its typeahead endpoint only answers for
+ * logged-in accounts, so this is where suggestions come from.
+ */
+function normalizeGuides(items) {
+  return (items || [])
+    .filter((item) => item?.term)
+    .map((item) => ({
+      term: String(item.term).slice(0, 120),
+      label: String(item.display || item.term).slice(0, 60),
+      image: typeof item.image_medium_url === 'string' ? item.image_medium_url : null,
+    }))
+    .slice(0, 12);
 }
 
 /** Full detail for a single pin. */

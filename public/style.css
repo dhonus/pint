@@ -221,6 +221,38 @@ main {
   margin-left: 2px;
 }
 
+/* ---------- search guides ---------- */
+
+.guides {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.guide {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 5px 14px 5px 5px;
+  font-size: 13px;
+}
+
+.guide img {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.guide:hover {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: transparent;
+}
+
 /* ---------- masonry grid ---------- */
 
 /* Real columns, not `column-count`: appending must never move what's already

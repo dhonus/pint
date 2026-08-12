@@ -63,6 +63,9 @@ function renderRecent() {
   for (const query of list) recentEl.append(chip(query, { subtle: true }));
 }
 
+/** The same history, offered as you type. */
+export const recentSearches = () => load();
+
 export function initHome(options) {
   homeEl = options.home;
   onPick = options.onPick || onPick;
