@@ -270,10 +270,12 @@ initHome({
 form.addEventListener('submit', (event) => {
   event.preventDefault();
   const query = input.value.trim();
-  if (!query || query === state.query) return;
-  // Hand the keyboard back so `s`, arrows and space work on the results.
+  // Dismiss first, unconditionally. Bailing out before this meant that
+  // submitting an unchanged query left the keyboard and suggestions up with
+  // nothing happening, which reads as the search being broken.
   hideSuggest();
   input.blur();
+  if (!query || query === state.query) return;
   // Closing the layers is part of this one navigation, not a separate one.
   restoring = true;
   layers.closeAll();
