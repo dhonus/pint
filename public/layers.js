@@ -31,6 +31,9 @@ let railTimer = null;
 // How far a finger must travel across the hero to count as "next image".
 const SWIPE_MIN_PX = 60;
 
+// How far into the detail you scroll before its chrome shrinks.
+const COMPACT_AT_PX = 48;
+
 export function initLayers(options) {
   root = options.root;
   rail = options.rail;
@@ -371,6 +374,16 @@ function build(layer) {
     { passive: true },
   );
   layer.more.addEventListener('click', () => loadMore(layer));
+
+  // On a phone the header and hero eat the screen; both shrink once you start
+  // scrolling the detail. Hysteresis so it can't flap around the threshold.
+  const trackCompact = () => {
+    const y = Math.max(layer.body.scrollTop, layer.related.scrollTop);
+    if (y > COMPACT_AT_PX) el.classList.add('compact');
+    else if (y < COMPACT_AT_PX / 3) el.classList.remove('compact');
+  };
+  layer.body.addEventListener('scroll', trackCompact, { passive: true });
+  layer.related.addEventListener('scroll', trackCompact, { passive: true });
 
   hydrate(layer);
   root.append(el);

@@ -770,6 +770,7 @@ main {
   .layer-hero {
     flex: none;
     height: 58dvh;
+    transition: height 0.26s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .layer-related {
     flex: none;
@@ -1752,11 +1753,32 @@ main {
     flex-wrap: wrap;
     gap: 8px 10px;
     padding: 10px 12px;
+    transition: padding 0.22s ease;
   }
 
   .layer-title {
     flex-basis: 100%;
     order: -1;
+    max-height: 46px;
+    overflow: hidden;
+    transition: max-height 0.24s ease, opacity 0.18s ease, margin 0.24s ease;
+  }
+
+  /* Scrolled into the detail: the title folds away, leaving just the actions,
+     and the hero gives back a chunk of its height. */
+  .layer.compact .layer-title {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: -8px;
+  }
+
+  .layer.compact .layer-head {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .layer.compact .layer-hero {
+    height: 38dvh;
   }
 
   .layer-actions {
@@ -1768,6 +1790,11 @@ main {
   .layer-source {
     padding: 7px 12px;
     font-size: 13px;
+  }
+
+  /* Close sits at the right edge, away from the actions it isn't one of. */
+  .layer-actions .layer-close {
+    margin-left: auto;
   }
 
   .layer-body {
