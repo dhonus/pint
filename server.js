@@ -5,6 +5,16 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
 import { searchPins, getPin, getRelated, fetchImage } from './pinterest.js';
+import {
+  listShelves,
+  pinIndex,
+  getShelf,
+  createShelf,
+  updateShelf,
+  deleteShelf,
+  removePin,
+  dataDir,
+} from './store.js';
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -84,6 +94,79 @@ async function handleImage(url, res) {
   Readable.fromWeb(image.body).pipe(res);
 }
 
+const MAX_BODY = 4 * 1024 * 1024;
+
+/** Read a JSON request body, refusing anything oversized. */
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY) {
+        reject(Object.assign(new Error('Body too large'), { status: 413 }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (!chunks.length) return resolve({});
+      try {
+        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+      } catch {
+        reject(Object.assign(new Error('Invalid JSON'), { status: 400 }));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+/**
+ * /api/shelves            GET (list, ?full=1) · POST (create)
+ * /api/shelves/<id>       GET · PATCH (rename / add pins) · DELETE
+ * /api/shelves/<id>/pins/<pinId>   DELETE
+ */
+async function handleShelves(req, res, url) {
+  const rest = url.pathname.slice('/api/shelves'.length).replace(/^\//, '');
+  const [id, section, pinId] = rest.split('/');
+
+  if (!id) {
+    if (req.method === 'GET') {
+      return sendJson(res, 200, {
+        shelves: await listShelves({ full: url.searchParams.get('full') === '1' }),
+        // Query param rather than a path, so it can't collide with a shelf id.
+        pins: url.searchParams.get('index') === '1' ? await pinIndex() : undefined,
+      });
+    }
+    if (req.method === 'POST') {
+      const body = await readJson(req);
+      return sendJson(res, 201, { shelf: await createShelf(body) });
+    }
+    return sendJson(res, 405, { error: 'Method not allowed' });
+  }
+
+  if (section === 'pins' && pinId) {
+    if (req.method !== 'DELETE') return sendJson(res, 405, { error: 'Method not allowed' });
+    return sendJson(res, 200, { shelf: await removePin(id, pinId) });
+  }
+
+  if (req.method === 'GET') {
+    const shelf = await getShelf(id);
+    if (!shelf) return sendJson(res, 404, { error: 'Shelf not found' });
+    return sendJson(res, 200, { shelf });
+  }
+  if (req.method === 'PATCH') {
+    const body = await readJson(req);
+    return sendJson(res, 200, { shelf: await updateShelf(id, body) });
+  }
+  if (req.method === 'DELETE') {
+    await deleteShelf(id);
+    return sendJson(res, 200, { ok: true });
+  }
+  return sendJson(res, 405, { error: 'Method not allowed' });
+}
+
 async function serveStatic(pathname, res) {
   const rel = pathname === '/' ? 'index.html' : pathname.slice(1);
   const file = path.join(PUBLIC_DIR, rel);
@@ -108,6 +191,10 @@ async function serveStatic(pathname, res) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
+    // Shelves are the only thing that accepts writes.
+    if (url.pathname === '/api/shelves' || url.pathname.startsWith('/api/shelves/')) {
+      return await handleShelves(req, res, url);
+    }
     if (req.method !== 'GET') return sendJson(res, 405, { error: 'Method not allowed' });
     if (url.pathname === '/api/search') return await handleSearch(url, res);
     if (url.pathname.startsWith('/api/pin/')) return await handlePin(url.pathname, res);
@@ -123,6 +210,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`pint listening on http://localhost:${PORT}`);
+  console.log(`shelves stored in ${dataDir}`);
 });
 
 for (const signal of ['SIGTERM', 'SIGINT']) {

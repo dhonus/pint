@@ -1,15 +1,20 @@
 FROM node:22-alpine
 
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    PINT_DATA=/data
 
 WORKDIR /app
 
 # Nothing to install — pint has no dependencies. package.json is here for
 # metadata and `npm start`.
 COPY package.json ./
-COPY server.js pinterest.js ./
+COPY server.js pinterest.js store.js ./
 COPY public ./public
+
+# Shelves live here. Owned by node so a fresh named volume inherits that.
+RUN mkdir -p /data && chown node:node /data
+VOLUME /data
 
 USER node
 

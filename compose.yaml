@@ -9,10 +9,16 @@ services:
       - "3000:3000"
     environment:
       PORT: 3000
-    # pint never writes to disk — it only reads its own files and streams
-    # everything else straight through.
+      PINT_DATA: /data
+    volumes:
+      # Your saved shelves. The only state pint has.
+      - pint-data:/data
+    # Nothing else is ever written — the volume stays writable regardless.
     read_only: true
     security_opt:
       - no-new-privileges:true
     cap_drop:
       - ALL
+
+volumes:
+  pint-data:
