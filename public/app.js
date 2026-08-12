@@ -104,7 +104,7 @@ async function loadResults({ reset = false } = {}) {
 function runSearch(query) {
   state.query = query;
   input.value = query;
-  document.title = query ? `${query} · pint` : 'pint';
+  document.title = query ? `${query} · pint!` : 'pint!';
 
   if (!query) {
     masonry.clear();
