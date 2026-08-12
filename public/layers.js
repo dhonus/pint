@@ -294,8 +294,18 @@ function build(layer) {
         <span class="layer-in" hidden></span>
         <button type="button" class="layer-save">Stash</button>
         <button type="button" class="layer-file" title="File into a shelf">Shelf ▾</button>
-        <a class="layer-pin" target="_blank" rel="noopener noreferrer">Pinterest ↗</a>
-        <a class="layer-source" target="_blank" rel="noopener noreferrer" hidden>Source ↗</a>
+        <a class="layer-pin" target="_blank" rel="noopener noreferrer" aria-label="Open on Pinterest">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2a10 10 0 00-3.6 19.3c-.09-.8-.02-1.9.18-2.8l1.17-4.95s-.3-.6-.3-1.48c0-1.39.8-2.42 1.8-2.42.85 0 1.26.64 1.26 1.4 0 .86-.55 2.14-.83 3.32-.24 1 .5 1.81 1.48 1.81 1.78 0 3.14-1.87 3.14-4.57 0-2.39-1.72-4.06-4.17-4.06-2.84 0-4.51 2.13-4.51 4.33 0 .86.33 1.78.74 2.28.08.1.1.19.07.29l-.28 1.13c-.04.18-.15.22-.34.13-1.25-.58-2.03-2.4-2.03-3.87 0-3.15 2.29-6.04 6.6-6.04 3.46 0 6.16 2.47 6.16 5.77 0 3.45-2.17 6.22-5.19 6.22-1.01 0-1.96-.53-2.29-1.15l-.62 2.38c-.22.87-.83 1.96-1.24 2.62A10 10 0 1012 2z" />
+          </svg>
+          <span>Pinterest</span>
+        </a>
+        <a class="layer-source" target="_blank" rel="noopener noreferrer" aria-label="Open source site" hidden>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M14 3h7v7h-2V6.41l-8.29 8.3-1.42-1.42L17.59 5H14V3zM5 5h5v2H7v10h10v-3h2v5H5V5z" />
+          </svg>
+          <span>Source</span>
+        </a>
         <button type="button" class="layer-close" aria-label="Close layer">✕</button>
       </div>
     </header>

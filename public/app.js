@@ -503,6 +503,16 @@ input.addEventListener('blur', () => {
   unfocusTimer = setTimeout(() => headerEl.classList.remove('searching'), 160);
 });
 
+// Tapping the page dismisses the keyboard. iOS won't blur a field just because
+// you touched something unfocusable, so it needs saying explicitly.
+addEventListener(
+  'pointerdown',
+  (event) => {
+    if (document.activeElement === input && !form.contains(event.target)) input.blur();
+  },
+  { passive: true },
+);
+
 /* ---------- boot ---------- */
 
 const initial = readUrl();
@@ -511,6 +521,8 @@ const initial = readUrl();
 showHome(!initial.q);
 // Focus the box only when there's nothing to browse yet — landing on results
 // with the caret in the search bar means `s` types instead of stashing.
-if (!initial.q) input.focus();
+// Never on touch: iOS won't raise the keyboard for a focus it didn't ask for,
+// but the field still counts as focused, so tapping it does nothing at all.
+if (!initial.q && matchMedia('(pointer: fine)').matches) input.focus();
 history.replaceState({ q: initial.q, chain: initial.chain }, '', currentUrl());
 restore(initial).then(() => history.replaceState(snapshot(), '', currentUrl()));

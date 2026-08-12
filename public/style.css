@@ -680,6 +680,17 @@ main {
   border-color: var(--muted);
 }
 
+.layer-actions .icon {
+  width: 15px;
+  height: 15px;
+}
+
+/* Words on desktop, where there's room for them. */
+.layer-pin .icon,
+.layer-source .icon {
+  display: none;
+}
+
 .layer-save.on {
   color: var(--accent-text);
   background: var(--accent);
@@ -786,7 +797,6 @@ main {
   .layer-hero {
     flex: none;
     height: 58dvh;
-    transition: height 0.26s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .layer-related {
     flex: none;
@@ -1732,11 +1742,18 @@ main {
     transform: none;
   }
 
-  /* Stop iOS offering its own image menu on a long press. */
+  /* A long press is our gesture, so the browser mustn't start selecting text
+     or offer its own image menu partway through it. */
   .card,
+  .card *,
   .shelf-tile,
-  .compare-item {
+  .shelf-tile *,
+  .shelf-item,
+  .compare-item,
+  .compare-item * {
     -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 }
 
@@ -1784,8 +1801,8 @@ main {
     transition: max-height 0.24s ease, opacity 0.18s ease, margin 0.24s ease;
   }
 
-  /* Scrolled into the detail: the title folds away, leaving just the actions,
-     and the hero gives back a chunk of its height. */
+  /* Scrolled into the detail: the title folds away, leaving just the actions.
+     The image keeps its size — watching it shrink under you is distracting. */
   .layer.compact .layer-title {
     max-height: 0;
     opacity: 0;
@@ -1797,9 +1814,6 @@ main {
     padding-bottom: 7px;
   }
 
-  .layer.compact .layer-hero {
-    height: 38dvh;
-  }
 
   .layer-actions {
     flex: 1;
@@ -1815,6 +1829,32 @@ main {
   /* Close sits at the right edge, away from the actions it isn't one of. */
   .layer-actions .layer-close {
     margin-left: auto;
+  }
+
+  /* The two links become their marks — a row of words doesn't fit a phone. */
+  .layer-pin span,
+  .layer-source span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .layer-pin .icon,
+  .layer-source .icon {
+    display: block;
+  }
+
+  .layer-actions .layer-pin,
+  .layer-actions .layer-source {
+    width: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .layer-actions .layer-pin {
+    color: var(--accent);
   }
 
   .layer-body {
