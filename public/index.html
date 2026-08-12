@@ -16,7 +16,9 @@
   </head>
   <body>
     <header>
-      <a class="brand" href="/">pint!</a>
+      <a class="brand" href="/"
+        ><span class="brand-word">pint</span><span class="brand-mark">!</span></a
+      >
       <form id="search-form" role="search">
         <input
           id="search-input"
@@ -25,7 +27,14 @@
           placeholder="Search for anything…   (press / )"
           autocomplete="off"
         />
-        <button type="submit">Search</button>
+        <button type="submit" aria-label="Search">
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M10 2a8 8 0 105.3 14l4.9 4.9 1.4-1.4-4.9-4.9A8 8 0 0010 2zm0 2a6 6 0 110 12 6 6 0 010-12z"
+            />
+          </svg>
+          <span>Search</span>
+        </button>
       </form>
 
       <p class="hints">

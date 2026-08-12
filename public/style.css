@@ -123,14 +123,89 @@ header {
   border-bottom: 1px solid var(--border);
 }
 
+
 .brand {
   flex: none;
+  display: inline-flex;
+  align-items: baseline;
   margin-right: 2px;
-  font-size: 20px;
+  font-size: 23px;
   font-weight: 700;
   color: var(--accent);
   text-decoration: none;
   letter-spacing: -0.02em;
+}
+
+/* The `!` swings in from the upper right and sticks; the word only reacts to
+   the impact, it doesn't animate in on its own. */
+.brand-word {
+  display: inline-block;
+  /* Compresses towards the mark, since that's where the knock comes from. */
+  transform-origin: 100% 100%;
+  animation: brand-word-knock 0.34s ease-out 0.52s backwards;
+}
+
+.brand-mark {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  animation: brand-pin-stick 0.72s cubic-bezier(0.3, 0.7, 0.3, 1) 0.18s backwards;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Once the drop has played, hovering nudges it loose again. */
+.brand:hover .brand-mark {
+  transform: translateY(-3px) rotate(9deg);
+}
+
+/* x closes well before y does, which bends the path into an arc. */
+@keyframes brand-pin-stick {
+  0% {
+    opacity: 0;
+    transform: translate(19px, -170%) rotate(30deg);
+  }
+  35% {
+    opacity: 1;
+  }
+  46% {
+    transform: translate(6px, -46%) rotate(12deg);
+  }
+  62% {
+    transform: translate(0, 0) rotate(-3deg) scale(1);
+  }
+  74% {
+    transform: translate(0, 0) rotate(0deg) scale(1.12, 0.86);
+  }
+  88% {
+    transform: translate(0, 0) scale(0.97, 1.04);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+/* A single beat of give as the mark lands against it. */
+@keyframes brand-word-knock {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(0.5px) scale(1.035, 0.965);
+  }
+  75% {
+    transform: scale(0.995, 1.008);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-word,
+  .brand-mark {
+    animation: none;
+  }
+
+  .brand:hover .brand-mark {
+    transform: none;
+  }
 }
 
 #search-form {
@@ -152,9 +227,13 @@ header {
   min-width: 0;
   padding: 0 16px;
   font: inherit;
+  /* iOS zooms the page whenever a focused field is under 16px. Unconditional,
+     because some mobile browsers misreport the pointer media queries. */
+  font-size: 16px;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid transparent;
+  /* Same border as the buttons beside it, so the row reads as one set. */
+  border: 1px solid var(--border);
   border-radius: 999px;
   outline: none;
 }
@@ -172,6 +251,13 @@ header {
   color: var(--accent-text);
   background: var(--accent);
   border-color: transparent;
+}
+
+.search-icon {
+  display: none;
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
 }
 
 /* Sits between the search and the shelves button, pushing the latter right. */
@@ -1089,8 +1175,87 @@ main {
   .open-shelves span {
     display: none;
   }
+
   .open-shelves {
     padding: 0 12px;
+  }
+
+  /* The form itself becomes the pill, with the input and the Search button as
+     segments inside it — one control, not two sitting next to each other. */
+  #search-form {
+    max-width: none;
+    gap: 0;
+    align-items: center;
+    padding: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+  }
+
+  #search-form:focus-within {
+    border-color: var(--accent);
+  }
+
+  #search-input {
+    height: 32px;
+    padding: 0 6px 0 12px;
+    background: none;
+    border: none;
+  }
+
+  /* Plain widths on one curve; the pill widens as the Shelves button folds
+     away, and the search segment widens with it. */
+  .open-shelves,
+  #search-form > button {
+    transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      margin 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Always there, as a segment of the pill: a magnifier, not a word. Nothing
+     appears or disappears on focus, so there is no pop to look wrong — the
+     only thing that moves is the pill getting wider. */
+  #search-form > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 999px;
+  }
+
+  #search-form > button span {
+    /* Kept for screen readers only. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .search-icon {
+    display: block;
+  }
+
+  /* A wider target once you're actually typing, without anything appearing. */
+  header.searching #search-form > button {
+    width: 58px;
+  }
+
+  .open-shelves {
+    width: 66px;
+    padding: 0;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  header.searching .open-shelves {
+    width: 0;
+    opacity: 0;
+    /* Takes the row gap with it, so the pill grows into the whole space. */
+    margin-left: -14px;
   }
 }
 
@@ -1565,7 +1730,7 @@ main {
   }
 
   .brand {
-    font-size: 18px;
+    font-size: 21px;
   }
 
   main {

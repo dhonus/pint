@@ -483,6 +483,24 @@ addEventListener('keydown', (event) => {
   }
 });
 
+/* ---------- search focus ---------- */
+
+// While the search has focus it borrows the Shelves pill's space; see the
+// `header.searching` rules.
+const headerEl = document.querySelector('header');
+let unfocusTimer = null;
+
+input.addEventListener('focus', () => {
+  clearTimeout(unfocusTimer);
+  headerEl.classList.add('searching');
+});
+
+input.addEventListener('blur', () => {
+  // A beat, so clicking the Search button lands before it shrinks away under
+  // the pointer — mousedown blurs the input, mouseup completes the click.
+  unfocusTimer = setTimeout(() => headerEl.classList.remove('searching'), 160);
+});
+
 /* ---------- boot ---------- */
 
 const initial = readUrl();
