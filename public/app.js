@@ -18,7 +18,7 @@ import { toast } from './toast.js';
 import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
 import * as layers from './layers.js';
-import { initShelf, isComparing, closeCompare } from './shelf-ui.js';
+import { initShelf, isComparing, closeCompare, closeStashSheet } from './shelf-ui.js';
 import { initHome, showHome, remember, recentSearches } from './home.js';
 import {
   initPeek,
@@ -161,6 +161,7 @@ function openLayer(pin) {
   // first or the new layer opens out of sight underneath.
   closeShelves();
   closeCompare();
+  closeStashSheet();
   const items = shelf.list();
   const index = items.findIndex((item) => item.id === pin.id);
   layers.open(pin, index >= 0 ? { siblings: items, index } : undefined);

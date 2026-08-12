@@ -86,11 +86,16 @@
 
     <!-- Collected pins, kept across searches and reloads. -->
     <aside id="shelf" class="shelf empty">
-      <span class="shelf-label">Stash <b class="shelf-count">0</b></span>
+      <button type="button" class="shelf-toggle">
+        <span class="shelf-label">Stash <b class="shelf-count">0</b></span>
+        <span class="shelf-caret" aria-hidden="true">▲</span>
+      </button>
       <div class="shelf-strip hscroll"></div>
-      <button type="button" class="shelf-push">Push to shelf ▾</button>
-      <button type="button" class="shelf-compare">Compare</button>
-      <button type="button" class="shelf-clear" title="Empty the stash">Clear</button>
+      <div class="shelf-actions">
+        <button type="button" class="shelf-push">Push to shelf ▾</button>
+        <button type="button" class="shelf-compare">Compare</button>
+        <button type="button" class="shelf-clear" title="Empty the stash">Clear</button>
+      </div>
     </aside>
 
     <!-- Saved collections, server side. -->

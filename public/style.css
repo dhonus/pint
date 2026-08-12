@@ -812,8 +812,30 @@ main {
 }
 
 .shelf.empty .shelf-compare,
-.shelf.empty .shelf-clear {
+.shelf.empty .shelf-clear,
+.shelf.empty .shelf-push {
   display: none;
+}
+
+/* On desktop this is only a wrapper for the label; the sheet is a phone idea. */
+.shelf-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: default;
+}
+
+.shelf-caret {
+  display: none;
+}
+
+.shelf-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .shelf-label {
@@ -1588,25 +1610,91 @@ main {
     padding: 12px;
   }
 
-  /* The stash bar gets tighter, and clears the home indicator. */
+  /* The stash becomes a sheet you pull up: thumbnails and three buttons never
+     fit on one phone-width row. Collapsed, it is just a tappable summary. */
+  :root {
+    --shelf-h: 52px;
+  }
+
   .shelf {
-    gap: 8px;
-    padding: 0 10px calc(env(safe-area-inset-bottom, 0px) * 0.6);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    height: auto;
+    max-height: 76dvh;
+    padding: 0 0 env(safe-area-inset-bottom, 0px);
+  }
+
+  .shelf-toggle {
+    justify-content: space-between;
+    width: 100%;
+    height: var(--shelf-h);
+    padding: 0 16px;
+    cursor: pointer;
+  }
+
+  .shelf-caret {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    transition: transform 0.18s ease;
+  }
+
+  .shelf.open .shelf-caret {
+    transform: rotate(180deg);
   }
 
   .shelf-label {
+    font-size: 13px;
+  }
+
+  /* Collapsed by default; the toggle reveals both parts. */
+  .shelf .shelf-strip,
+  .shelf .shelf-actions {
     display: none;
   }
 
-  .shelf-item .shelf-open img {
-    width: 50px;
-    height: 50px;
+  .shelf.open .shelf-strip {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 10px;
+    height: auto;
+    max-height: 52dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 4px 14px 12px;
+    /* A wrapped grid has no horizontal overflow to fade. */
+    mask-image: none;
   }
 
-  .shelf button {
-    padding: 7px 12px;
+  .shelf.open .shelf-actions {
+    display: flex;
+    gap: 8px;
+    padding: 0 14px 14px;
+  }
+
+  .shelf.open .shelf-actions button {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 8px;
     font-size: 13px;
     white-space: nowrap;
+  }
+
+  .shelf-item .shelf-open img {
+    width: 72px;
+    height: 72px;
+  }
+
+  /* Every action button on a card is visible on a phone, not on hover — some
+     browsers still report `hover: hover` on touch, so this is the belt to the
+     `@media (hover: none)` braces. */
+  .card-shelf,
+  .shelf-remove,
+  .shelf-dig,
+  .shelf-card-actions {
+    opacity: 1;
   }
 
   /* Full bleed: screen space is the scarce thing here. */

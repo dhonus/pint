@@ -44,8 +44,18 @@ export function initShelf(options) {
     if (event.target === compareEl) closeCompare();
   });
 
+  // On a phone the bar collapses to a single row; this pulls the sheet up.
+  bar.querySelector('.shelf-toggle').addEventListener('click', () => {
+    bar.classList.toggle('open');
+  });
+
   shelf.subscribe(render);
   render();
+}
+
+/** Used when something else takes over the screen. */
+export function closeStashSheet() {
+  bar?.classList.remove('open');
 }
 
 function thumb(pin, { big = false } = {}) {
@@ -135,6 +145,7 @@ function renderCompare() {
 function toggleCompare() {
   if (compareOpen) closeCompare();
   else if (shelf.count()) {
+    closeStashSheet();
     compareOpen = true;
     compareEl.hidden = false;
     document.body.classList.add('comparing');
