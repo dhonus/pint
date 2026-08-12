@@ -1,6 +1,7 @@
 import { shelf } from './shelf.js';
 import { shelvesFor, onShelvesChange } from './shelves.js';
 import { setActivePin } from './active.js';
+import { attachMenuGesture } from './menu-gesture.js';
 
 // Whatever the pointer or keyboard focus is on. Lets `S` and `Space` act on the
 // pin you're looking at without a click first.
@@ -16,9 +17,6 @@ shelf.subscribe(() => {
 onShelvesChange(() => {
   for (const el of document.querySelectorAll('.card[data-id]')) markSaved(el, el.dataset.id);
 });
-
-// How long a touch must rest on a pin before the shelf menu opens.
-const LONG_PRESS_MS = 420;
 
 const BOOKMARK =
   '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">' +
@@ -64,40 +62,14 @@ export function createCard(pin, { onOpen, size = 'grid' } = {}) {
   img.style.backgroundColor = pin.color;
   open.append(img);
 
-  // A long press is the touch equivalent of right-click; the tap that follows
-  // it must not also open the pin.
-  let pressTimer = null;
-  let pressFired = false;
+  const gesture = attachMenuGesture(card, () => pin, { activate: () => setActivePin(pin, card) });
 
+  // The tap that ends a long press must not also open the pin.
   open.addEventListener('click', () => {
-    if (pressFired) {
-      pressFired = false;
-      return;
-    }
+    if (gesture.consumed()) return;
     onOpen?.(pin);
   });
   card.append(open);
-
-  card.addEventListener('pointerdown', (event) => {
-    if (event.pointerType !== 'touch') return;
-    pressFired = false;
-    pressTimer = setTimeout(() => {
-      pressFired = true;
-      setActivePin(pin, card);
-      card.dispatchEvent(
-        new CustomEvent('pin:menu', {
-          bubbles: true,
-          detail: { pin, x: event.clientX, y: event.clientY },
-        }),
-      );
-    }, LONG_PRESS_MS);
-  });
-
-  const cancelPress = () => clearTimeout(pressTimer);
-  card.addEventListener('pointerup', cancelPress);
-  card.addEventListener('pointercancel', cancelPress);
-  // Any movement means a scroll, not a press.
-  card.addEventListener('pointermove', cancelPress, { passive: true });
 
   const save = document.createElement('button');
   save.type = 'button';
@@ -125,21 +97,6 @@ export function createCard(pin, { onOpen, size = 'grid' } = {}) {
   const activate = () => setActivePin(pin, card);
   card.addEventListener('pointerenter', activate);
   card.addEventListener('focusin', activate);
-
-  // Right-click files the pin somewhere saved. Dispatched rather than handled
-  // here, so cards don't need to know the picker exists.
-  card.addEventListener('contextmenu', (event) => {
-    event.preventDefault();
-    activate();
-    card.dispatchEvent(
-      new CustomEvent('pin:menu', {
-        bubbles: true,
-        // No anchor: a context menu belongs at the cursor. Holding `s` is the
-        // one that hangs off the pin's `+`.
-        detail: { pin, x: event.clientX, y: event.clientY },
-      }),
-    );
-  });
 
   return card;
 }

@@ -570,13 +570,28 @@ main {
   align-items: center;
 }
 
-.layer-source {
+/* Buttons and links in the header are the same control, so they look it —
+   the anchors don't inherit the base `button` rule on their own. */
+.layer-actions button,
+.layer-actions a {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  font: inherit;
   font-size: 13px;
-  color: var(--muted);
-  text-decoration: none;
-  padding: 8px 12px;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.layer-actions button:hover,
+.layer-actions a:hover {
+  border-color: var(--muted);
 }
 
 .layer-save.on {
@@ -587,15 +602,18 @@ main {
 
 .layer-in {
   font-size: 12px;
-  color: var(--accent);
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 220px;
 }
 
-.layer-close {
-  padding: 8px 12px;
+/* Needs to outrank `.layer-actions button` above, or the padding survives. */
+.layer-actions .layer-close {
+  width: 34px;
+  padding: 0;
+  justify-content: center;
 }
 
 /* The hero column is fixed and only the feed scrolls, so the image is always
@@ -1673,4 +1691,54 @@ main {
   text-align: center;
   color: #fff;
   font-size: 14px;
+}
+
+/* A zoom is somewhere you can act from, not just a bigger picture. */
+.peek-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.peek-bar .peek-open,
+.peek-bar .peek-link {
+  display: none;
+  padding: 7px 15px;
+  font-size: 13px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
+.peek-bar .peek-open {
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+}
+
+.peek-bar .peek-link {
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+/* Only the sticky zoom is interactive; a hold-to-peek is just a look. */
+.peek.sticky .peek-bar .peek-open,
+.peek.sticky .peek-bar .peek-link {
+  display: inline-flex;
+}
+
+.layer-pin {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.layer-pin:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }

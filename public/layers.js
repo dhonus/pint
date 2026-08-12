@@ -3,6 +3,7 @@ import { createCard } from './cards.js';
 import { createMasonry } from './masonry.js';
 import { shelf } from './shelf.js';
 import { shelvesFor, onShelvesChange } from './shelves.js';
+import { setActivePin } from './active.js';
 
 // Each entry is one level of the dig. Entries stay mounted when deeper layers
 // open on top, so popping back is instant and keeps its scroll position.
@@ -60,6 +61,8 @@ export const isOpen = () => stack.length > 0;
 export const chain = () => stack.map((layer) => layer.pin.id);
 /** The only interactive layer — where arrow-key selection should apply. */
 export const topElement = () => stack.at(-1)?.el || null;
+/** The pin the top layer is showing, which is what `s` should act on. */
+export const currentPin = () => stack.at(-1)?.pin || null;
 
 /**
  * Open a pin as a new layer on top of whatever is already there.
@@ -288,6 +291,7 @@ function build(layer) {
         <span class="layer-in" hidden></span>
         <button type="button" class="layer-save">Stash</button>
         <button type="button" class="layer-file" title="File into a shelf">Shelf ▾</button>
+        <a class="layer-pin" target="_blank" rel="noopener noreferrer">Pinterest ↗</a>
         <a class="layer-source" target="_blank" rel="noopener noreferrer" hidden>Source ↗</a>
         <button type="button" class="layer-close" aria-label="Close layer">✕</button>
       </div>
@@ -332,6 +336,8 @@ function build(layer) {
     );
   };
   const hero = el.querySelector('.layer-hero');
+  // Pointing at the big image makes it the active pin, the same way a card does.
+  hero.addEventListener('pointerenter', () => setActivePin(layer.pin));
   file.addEventListener('click', openMenu);
   hero.addEventListener('contextmenu', openMenu);
 
@@ -430,6 +436,10 @@ function hydrate(layer) {
     layer.hero.src = pin.large || pin.thumb;
     layer.hero.alt = pin.alt || pin.title || 'Pin image';
   }
+
+  // Straight to the pin on pinterest.com, for when you want the real thing.
+  const pinterest = layer.el.querySelector('.layer-pin');
+  pinterest.href = pin.pinUrl || `https://www.pinterest.com/pin/${pin.id}/`;
 
   const source = layer.el.querySelector('.layer-source');
   source.hidden = !pin.link;

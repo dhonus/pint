@@ -5,6 +5,7 @@ import {
   initShelves,
   open as openShelves,
   back as shelvesBack,
+  close as closeShelves,
   isShelvesOpen,
   onShelvesChange,
   viewState as shelvesView,
@@ -24,6 +25,7 @@ import {
   isPeeking,
   isZooming,
   currentPin,
+  zoomSet,
   zoom,
   hide as hidePeek,
 } from './peek.js';
@@ -155,6 +157,10 @@ function renderGuides(guides) {
 
 /** Opening from the shelf walks the shelf; from anywhere else, just the pin. */
 function openLayer(pin) {
+  // Layers sit below the shelves modal, so digging from there has to leave it
+  // first or the new layer opens out of sight underneath.
+  closeShelves();
+  closeCompare();
   const items = shelf.list();
   const index = items.findIndex((item) => item.id === pin.id);
   layers.open(pin, index >= 0 ? { siblings: items, index } : undefined);
@@ -230,7 +236,7 @@ initShelf({
   compare: document.getElementById('compare'),
   onOpen: openLayer,
 });
-initPeek();
+initPeek({ onOpen: openLayer });
 initShelves({
   root: document.getElementById('shelves'),
   onOpen: openLayer,
@@ -302,12 +308,12 @@ function rearmGrid() {
 const isTyping = (target) =>
   target instanceof Element && target.matches('input, textarea, [contenteditable]');
 
-/** Walk a zoomed shelf image along the shelf itself. */
+/** Walk a zoomed image along whichever set it was opened from. */
 function stepZoom(delta) {
-  const items = shelf.list();
+  const items = zoomSet().length ? zoomSet() : shelf.list();
   const index = items.findIndex((item) => item.id === currentPin()?.id);
   const next = items[index + delta];
-  if (next) zoom(next);
+  if (next) zoom(next, { set: items });
 }
 
 /** Whichever surface is on top is the one the arrow keys should walk. */
@@ -357,13 +363,28 @@ function moveSelection(direction) {
 /* ---------- stash: tap to add, hold to file ---------- */
 
 const HOLD_MS = 320;
+
+/**
+ * What `s` acts on. With a layer open that's the big image, unless the pointer
+ * is over one of the related cards inside it.
+ */
+function stashTarget() {
+  const top = layers.topElement();
+  if (!top) return getActivePin();
+  const card = getActiveCard();
+  if (card && top.contains(card)) return getActivePin();
+  return layers.currentPin() || getActivePin();
+}
 let holdTimer = null;
 let holdCard = null;
 let holdFired = false;
 
 function startHold(pin) {
   holdFired = false;
-  holdCard = getActiveCard();
+  const top = layers.topElement();
+  const hovered = getActiveCard();
+  // Only treat it as a card hold when that card belongs to the layer on top.
+  holdCard = !top || (hovered && top.contains(hovered)) ? hovered : null;
   // The ring filling on the card is the affordance — it tells you a hold is
   // a thing before you've held long enough to find out.
   holdCard?.classList.add('holding');
@@ -371,7 +392,12 @@ function startHold(pin) {
   holdTimer = setTimeout(() => {
     holdFired = true;
     endHold();
-    openPicker(pin, { anchor: card?.querySelector('.card-shelf') });
+    openPicker(pin, {
+      // Falls back to the layer's own shelf button, then to screen centre.
+      anchor: card?.querySelector('.card-shelf') || top?.querySelector('.layer-file'),
+      x: innerWidth / 2,
+      y: innerHeight / 2,
+    });
   }, HOLD_MS);
 }
 
@@ -394,7 +420,7 @@ addEventListener('keyup', (event) => {
   endHold();
   // A quick tap is the common case: stash it and get out of the way.
   if (wasHolding && !holdFired) {
-    const pin = getActivePin();
+    const pin = stashTarget();
     if (pin) {
       const added = shelf.toggle(pin);
       toast(added ? 'Stashed' : 'Removed from stash');
@@ -431,7 +457,7 @@ addEventListener('keydown', (event) => {
     case 's':
     case 'S': {
       if (event.repeat || holdTimer) break;
-      const pin = getActivePin();
+      const pin = stashTarget();
       if (pin) startHold(pin);
       break;
     }

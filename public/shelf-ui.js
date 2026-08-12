@@ -60,7 +60,7 @@ function thumb(pin, { big = false } = {}) {
   button.append(img);
   button.addEventListener('click', () => {
     if (big) {
-      zoom(pin);
+      zoom(pin, { set: shelf.list() });
       return;
     }
     closeCompare();

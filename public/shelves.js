@@ -1,5 +1,6 @@
 import { setActivePin } from './active.js';
 import { zoom } from './peek.js';
+import { attachMenuGesture } from './menu-gesture.js';
 
 // Saved collections, kept on the server. The stash at the bottom of the screen
 // is the scratch space you fill while digging; a shelf is what you keep.
@@ -71,7 +72,7 @@ export async function removeFromShelf(id, pinId) {
 
 /* ---------- rendering ---------- */
 
-function tile(pin, shelfId) {
+function tile(pin, shelfId, siblings) {
   const wrap = document.createElement('figure');
   wrap.className = 'shelf-tile';
 
@@ -86,9 +87,15 @@ function tile(pin, shelfId) {
   img.style.backgroundColor = pin.color;
   if (pin.width && pin.height) img.style.aspectRatio = `${pin.width} / ${pin.height}`;
   open.append(img);
-  open.addEventListener('click', () => zoom(pin));
-
   const activate = () => setActivePin(pin);
+  const gesture = attachMenuGesture(wrap, () => pin, { activate });
+
+  open.addEventListener('click', () => {
+    if (gesture.consumed()) return;
+    // Zoom walks this shelf, so left/right move through what you're looking at.
+    zoom(pin, { set: siblings });
+  });
+
   wrap.addEventListener('pointerenter', activate);
   wrap.addEventListener('focusin', activate);
 
@@ -122,7 +129,7 @@ function tile(pin, shelfId) {
 function grid(pins, shelfId) {
   const el = document.createElement('div');
   el.className = 'shelves-grid';
-  for (const pin of pins) el.append(tile(pin, shelfId));
+  for (const pin of pins) el.append(tile(pin, shelfId, pins));
   return el;
 }
 
