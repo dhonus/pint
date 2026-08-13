@@ -503,6 +503,12 @@ input.addEventListener('blur', () => {
   unfocusTimer = setTimeout(() => headerEl.classList.remove('searching'), 160);
 });
 
+input.addEventListener('pointerdown', (event) => {
+  if (event.pointerType !== 'touch' || document.activeElement !== input) return;
+  input.blur();
+  input.focus();
+});
+
 // Tapping the page dismisses the keyboard. iOS won't blur a field just because
 // you touched something unfocusable, so it needs saying explicitly.
 addEventListener(
