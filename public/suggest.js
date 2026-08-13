@@ -90,9 +90,11 @@ export function initSuggest(options) {
   form.append(panel);
 
   input.addEventListener('input', show);
-  // Deliberately not on `focus`: the app focuses the box itself on the empty
-  // home screen, and that shouldn't pop a list open by itself.
-  input.addEventListener('pointerdown', show);
+  // On `focus`, never `pointerdown`: opening the panel mid-touch mutates the
+  // DOM under the finger, iOS re-runs its hit test and drops the focus that
+  // tap was about to apply — so the keyboard never appears. Safe to use focus
+  // now that boot no longer focuses the field on touch devices.
+  input.addEventListener('focus', show);
   input.addEventListener('blur', () => setTimeout(hide, 120));
   input.addEventListener('keydown', (event) => {
     if (suggestKey(event)) event.preventDefault();
