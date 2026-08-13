@@ -288,7 +288,10 @@ main {
 
 .home {
   max-width: 860px;
-  margin: 8vh auto 40px;
+  /* Fixed, not viewport units: the visual viewport changes the moment a phone
+     keyboard opens, and vh margins would shuffle the whole page as you tap
+     into the search box. */
+  margin: 56px auto 40px;
   padding: 0 4px;
 }
 
@@ -1885,7 +1888,7 @@ main {
   }
 
   .home {
-    margin-top: 4vh;
+    margin-top: 26px;
   }
 
   /* The layer fills the screen, minus the stash bar the container already
