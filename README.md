@@ -25,7 +25,16 @@ your results, stack as deep as you care to go, and the way back is always on scr
 - the whole dig lives in the URL (`/?q=coats&pin=123,456,789`), so you can send someone a rabbit hole
 - no dependencies, no build step, no framework
 
-<img width="1656" height="1291" alt="Screenshot 2026-08-24 at 22 59 48" src="https://github.com/user-attachments/assets/3570b7f8-8cd5-4ec6-8f5c-3a6da3dee2dd" />
+
+### Pin preview
+
+![pint](https://github.com/user-attachments/assets/3570b7f8-8cd5-4ec6-8f5c-3a6da3dee2dd)
+
+### Stacking pins
+The core of the app is the ability to open details of pins on top of one another:
+
+<img width="800" height="689" alt="ScreenRecording2026-08-24at23 07 49-ezgif com-optimize" src="https://github.com/user-attachments/assets/00b40928-fe35-44f3-9403-008d3f0b8907" />
+
 
 ## Keys
 
