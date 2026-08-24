@@ -411,7 +411,11 @@ function endHold() {
   holdCard = null;
 }
 
-// Right-click anywhere a card lives opens the same menu.
+addEventListener('pin:search', (event) => {
+  input.value = event.detail.term;
+  form.requestSubmit();
+});
+
 addEventListener('pin:menu', (event) => {
   const { pin, anchor, x, y } = event.detail;
   openPicker(pin, { anchor, x, y });

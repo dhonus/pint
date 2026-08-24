@@ -312,6 +312,7 @@ function build(layer) {
     <div class="layer-body">
       <div class="layer-hero"><img alt="" /></div>
       <div class="layer-related">
+        <div class="layer-tags hscroll" hidden></div>
         <h3>More like this</h3>
         <div class="sub-grid"></div>
         <div class="spinner" hidden></div>
@@ -325,6 +326,7 @@ function build(layer) {
   layer.more = el.querySelector('.more');
   layer.status = el.querySelector('.status');
   layer.hero = el.querySelector('.layer-hero img');
+  layer.tags = el.querySelector('.layer-tags');
   layer.body = el.querySelector('.layer-body');
   layer.related = el.querySelector('.layer-related');
   layer.spinner = el.querySelector('.spinner');
@@ -464,11 +466,36 @@ function hydrate(layer) {
   const pinterest = layer.el.querySelector('.layer-pin');
   pinterest.href = pin.pinUrl || `https://www.pinterest.com/pin/${pin.id}/`;
 
+  renderTags(layer);
+
   const source = layer.el.querySelector('.layer-source');
   source.hidden = !pin.link;
   if (pin.link) source.href = pin.link;
 
   syncShelfButtons();
+}
+
+/**
+ * Pinterest's own visual tags for the image. Each one searches here rather than
+ * linking out — they're better search terms than most titles.
+ */
+function renderTags(layer) {
+  const terms = layer.pin.keywords || [];
+  layer.tags.replaceChildren();
+  layer.tags.hidden = terms.length === 0;
+  if (!terms.length) return;
+
+  for (const term of terms) {
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'layer-tag';
+    chip.textContent = term;
+    chip.title = `Search for ${term}`;
+    chip.addEventListener('click', () => {
+      layer.el.dispatchEvent(new CustomEvent('pin:search', { bubbles: true, detail: { term } }));
+    });
+    layer.tags.append(chip);
+  }
 }
 
 function syncShelfButtons() {

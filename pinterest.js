@@ -245,6 +245,10 @@ export async function getPin(id) {
   return {
     ...pin,
     alt: (raw.alt_text || raw.auto_alt_text || '').trim(),
+    keywords: (raw.pin_join?.visual_annotation || [])
+      .filter((term) => typeof term === 'string' && term.trim())
+      .map((term) => term.trim().slice(0, 60))
+      .slice(0, 12),
     pinner: raw.pinner
       ? { username: raw.pinner.username, name: raw.pinner.full_name || '' }
       : null,
