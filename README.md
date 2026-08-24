@@ -40,7 +40,7 @@ The core of the app is the ability to open details of pins on top of one another
 
 | Key         | Does                                                                 |
 |-------------|----------------------------------------------------------------------|
-| `←` `→`     | move sideways — the big image in a layer, the shelf in a zoom, the selection on the grid |
+| `←` `→`     | move sideways. the big image in a layer, the shelf in a zoom, the selection on the grid |
 | `space`     | hold to peek, let go to dismiss                                      |
 | `s`         | tap to stash, hold to pick a shelf to file it into                   |
 | right-click | the same shelf picker, on any pin                                    |
@@ -57,7 +57,7 @@ On a phone: tap to open, long-press for the shelf picker, swipe the big image to
 npm start          # http://localhost:3000
 ```
 
-Node 20+, and that's the whole list. There's nothing to install.
+Node 20+. Nothing to install.
 
 ### Docker
 
