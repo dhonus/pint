@@ -1,28 +1,28 @@
 # pint
 
-An alternative frontend for Pinterest. The backend fetches and parses the real site, the frontend is
-entirely its own thing. No account, no login wall, no "open in the app", and your browser never talks
-to Pinterest directly.
+Pint is an alternative frontend for Pinterest. It fetches and parses the real site on the backend,
+the frontend is its own thing. No account, no login wall, no app nag, and your browser never talks to
+Pinterest directly.
 
-It exists because of one annoyance: on Pinterest, clicking a pin throws away the grid you were
-reading, and going back drops you somewhere else. Here nothing ever navigates. Pins open *on top* of
-your results, stack as deep as you care to go, and the way back is always on screen.
+The point is navigation. On Pinterest, opening a pin throws away the grid you were reading. Here it
+opens on top of it instead, and stacks, so you can dig as deep as you want and still get back.
 
 <img width="1656" height="1291" alt="Screenshot 2026-08-24 at 22 57 17" src="https://github.com/user-attachments/assets/fcb1dad2-d324-4806-8e9f-ee7d50f3e815" />
 
-## What it does
+## Features
 
-- a masonry grid that keeps loading and never reshuffles what you've already looked at
-- **layers** — a pin opens over the frozen grid, its related pins open over that, and on it goes
-- **the rail** — your trail down. click any level to jump straight back to it
-- **stash** — tap `s` on anything, at any depth, and it lands in the tray at the bottom
-- **shelves** — save a stash as a named shelf, kept on the server. hold `s` or right-click to file a
-  pin straight into one
-- **compare** — the stash blown up into a full grid, for looking at six jackets at once
-- hold `space` to peek at whatever you're pointing at, no click needed
-- keyword chips on every pin, lifted from Pinterest's own tags, each one a search
-- back and forward drive the layer stack instead of leaving the page
-- the whole dig lives in the URL (`/?q=coats&pin=123,456,789`), so you can send someone a rabbit hole
+- pins open in stacked **layers** over the grid, never instead of it
+- masonry grid that lazy loads without reshuffling what you've already seen
+- a trail of every layer you opened, click any of them to jump back
+- stash pins with `s` as you browse, at any depth
+- save a stash as a named **shelf**, kept server side
+- hold `s` or right-click to file a pin straight into a shelf
+- compare view, the whole stash in one grid
+- hold `space` to peek at anything without clicking
+- keyword chips on every pin, straight from Pinterest's own tags
+- back and forward drive the layer stack
+- shareable urls, the whole dig included (`/?q=coats&pin=123,456,789`)
+- works properly on a phone, gestures and all
 - no dependencies, no build step, no framework
 
 
@@ -84,12 +84,11 @@ None of this is official and it can break whenever Pinterest feels like it. Wort
 datacenter or VPN IP you'll often get a cheerful `200` with zero results, which looks like a bug here
 but isn't.
 
-## One thing I'd otherwise forget
+## Notes
 
-The masonry is hand-rolled because CSS `column-count` re-flows every item whenever you append, so
-lazy loading shuffles everything above you mid-scroll. Each column is its own element and new cards
-go to the shortest one — nothing already on screen ever moves. That's the whole point of the app, so
-it wasn't negotiable.
+The masonry is hand-rolled. CSS `column-count` re-flows every item when you append, so lazy loading
+shuffles everything above you mid-scroll. Each column is its own element and new cards go to the
+shortest one, so nothing on screen moves.
 
 ### Mobile
 
