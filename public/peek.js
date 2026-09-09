@@ -1,12 +1,12 @@
 import { getActivePin } from './active.js';
 
-// Hold Space to enlarge whatever you're pointing at, release to dismiss.
+// Space enlarges whatever you're pointing at, Space again puts it away.
 // Most looks shouldn't even cost a click.
 let el;
 let img;
 let label;
 let open = false;
-// Zoom (from the shelf) stays up until dismissed, unlike hold-to-peek.
+// Zoom (from the shelf) walks a set with the arrow keys, unlike a plain peek.
 let sticky = false;
 
 let current = null;
@@ -55,18 +55,12 @@ export function initPeek({ onOpen } = {}) {
     if (event.code !== 'Space' || isTyping(event.target)) return;
     const pin = getActivePin();
     if (!pin && !open) return;
-    // Must run on repeats too, or the page scrolls the whole time it's held.
+    // Must run on repeats too, or holding it scrolls the page behind the peek.
     event.preventDefault();
-    if (event.repeat || open) return;
-    show(pin);
+    if (event.repeat) return;
+    if (open) hide();
+    else show(pin);
   });
-
-  addEventListener('keyup', (event) => {
-    if (event.code === 'Space' && !sticky) hide();
-  });
-
-  // Releasing the key outside the window would otherwise leave it stuck open.
-  addEventListener('blur', hide);
 }
 
 function show(pin) {

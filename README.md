@@ -18,7 +18,7 @@ opens on top of it instead, and stacks, so you can dig as deep as you want and s
 - save a stash as a named **shelf**, kept server side
 - hold `s` or right-click to file a pin straight into a shelf
 - compare view, the whole stash in one grid
-- hold `space` to peek at anything without clicking
+- tap `space` to peek at anything without clicking
 - keyword chips on every pin, straight from Pinterest's own tags
 - back and forward drive the layer stack
 - shareable urls, the whole dig included (`/?q=coats&pin=123,456,789`)
@@ -41,7 +41,7 @@ The core of the app is the ability to open details of pins on top of one another
 | Key         | Does                                                                 |
 |-------------|----------------------------------------------------------------------|
 | `←` `→`     | move sideways. the big image in a layer, the shelf in a zoom, the selection on the grid |
-| `space`     | hold to peek, let go to dismiss                                      |
+| `space`     | tap to peek, tap again to dismiss                                    |
 | `s`         | tap to stash, hold to pick a shelf to file it into                   |
 | right-click | the same shelf picker, on any pin                                    |
 | `esc`       | step back one thing at a time                                        |
